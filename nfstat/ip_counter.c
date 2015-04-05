@@ -89,24 +89,30 @@ bool addipentry(const nfs_ipaddr *ip)
 	struct rb_node **newnode = NULL;
 	struct rb_node *parent = NULL;
 	int ret = 0;
-	write_lock_irqsave(&iptreelock);
+
+	read_lock_irqsave(&iptreelock);
 	newnode = &iptree->rb_node;
 	while(*newnode) {
 		entry = container_of(*newnode, struct ip_counter_entry, node);
 		parent = *newnode;
 		ret = memcmp(&entry->ip, ip, sizeof(nfs_ipaddr));
 		if (ret < 0)
-			*newnode = & (*newnode)->rb_left;
+			newnode = & (*newnode)->rb_left;
 		else if (ret > )
-			*newnode = & (*newnode)->rb_right;
+			newnode = & (*newnode)->rb_right;
 		else {
-			write_unlock_irqrestore(&iptreelock);
+
+			read_unlock_irqrestore(&iptreelock);
 			return false;
 		}
 	}
+
+	read_unlock_irqrestore(&iptreelock);
 	entry = new();
+	if (entry == NULL) return false;
 	memcpy((void*)&entry->ip, (void*)ip, sizeof(nfs_ipaddr));
 	
+	write_lock_irqsave(&iptreelock);
 	rb_link_node(&entry->node, parent, newnode);
 	rb_insert_color(&entry->node, iptree);
 	write_unlock_irqrestore(&iptreelock);
@@ -118,8 +124,9 @@ inline bool rmvipentry(const nfs_ipaddr *ip)
 	if (entry == NULL) return false;
 	write_lock_irqsave(&iptreelock);
 	rb_erase(&entry->node, &iptree);
-	delete(entry);
 	write_unlock_irqrestore(&iptreelock);
+
+	delete(entry);
 	return true;
 
 }
