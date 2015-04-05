@@ -1,3 +1,16 @@
+/*
+ * A structure to store packet counters for each ip.
+ *
+ * (C) 2015  Zhi Fu Zhang <zzfooo@hotmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ *
+ */
+
 #include <linux/kernel.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
@@ -6,7 +19,9 @@
 #include "internal.h"
 
 static struct rb_root iptree = RB_ROOT;
-DEFINE_RWLOCK(iptreelock); /*only when the iptree insert/delete, it is write mode */
+/*only when the iptree insert/delete, it is write mode */
+DEFINE_RWLOCK(iptreelock);
+
 static u8 maxtype = 8;
 
 static inline void delete(struct ip_counter_entry *entry)
@@ -14,7 +29,6 @@ static inline void delete(struct ip_counter_entry *entry)
 
 	struct nfs_counter_vector *c = NULL;
 	if (entry == NULL) return;
-	kfree(entry->rulecount);
 	for_each_possible_cpu(cpu) {
 		c = per_cpu_ptr(entry->counter, cpu);
 		kfree(c->number);
@@ -30,11 +44,9 @@ static inline struct ip_counter_entry *new()
 		    GFP_KERNEL);
 	struct nfs_counter_vector *c = NULL;
 	if (entry == NULL) return NULL;
-	entry->rulecount = NULL;
 	entry->counter = NULL;
-	entry->rulecount = kzalloc(sizeof(u8) * maxtype, GFP_KERNEL);
 	entry->counter = alloc_percpu(struct nfs_counter_vector);
-	if (entry->rulecount == NULL || entry->counter == NULL) {
+	if (entry->counter == NULL) {
 		delete(entry);
 		return NULL;
 	}
@@ -83,6 +95,8 @@ struct ip_counter_entry *findipentry(const nfs_ipaddr *ip)
 	return NULL;
 
 }
+
+/* addipentry is not threaded */
 bool addipentry(const nfs_ipaddr *ip)
 {
 	struct ip_counter_entry *entry = NULL;
@@ -130,19 +144,7 @@ inline bool rmvipentry(const nfs_ipaddr *ip)
 	return true;
 
 }
-inline void incrulecount(ip_counter_entry *entry, u8 typeidx)
-{
-	read_lock_irqsave(&iptreelock);
-	entry->rulecout[typeidx]++;
-	read_unlock_irqrestore(&iptreelock);
-}
-inline void decrulecount(ip_counter_entry *entry, u8 typeidx)
-{
-	read_lock_irqsave(&iptreelock);
-	entry->rulecout[typeidx]--;
-	read_unlock_irqrestore(&iptreelock);
 
-}
 inline void incpkgnumber(ip_counter_entry *entry, u8 typeidx)
 {
 	read_lock_irqsave(&iptreelock);
@@ -158,6 +160,7 @@ inline void incpkgbytes(ip_counter_entry *entry, u8 typeidx, u64 bytes)
 	put_cpu_ptr(entry->counter);
 	read_unlock_irqrestore(&iptreelock);
 }
+
 void getcounter_ip(const struct ip_counter_entry *entry,
 		struct nfs_counter_vector *vector)
 {
@@ -177,16 +180,4 @@ void getcounter_ip(const struct ip_counter_entry *entry,
 	read_unlock_irqrestore(&iptreelock);
 }
 
-
-/*
-alloc_percpu_gfp
-alloc_percpu
-this_cpu_ptr
-get_cpu_var
-  for_each_possible_cpu(cpu) {
-                  struct perf_cpu_context *cpuctx;
-
-                                  cpuctx = per_cpu_ptr(pmu->pmu_cpu_context, cpu);
-
-  */
 
