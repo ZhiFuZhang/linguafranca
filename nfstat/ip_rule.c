@@ -67,3 +67,76 @@ static int rulecmp(const nfs_rule *src, const nfs_rule *dst)
 	if (ret !=0) return ret;
 	return 0;
 }
+
+struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule) 
+{
+	struct rb_node *node = NULL;
+	struct rb_rule_entry *entry = NULL;
+	int ret = 0;
+	if (rule == NULL) return NULL;
+	read_lock_irqsave(&ruletreelock);
+	node = ruletree.rb_node;
+	while(node) {
+		entry = cntainer_of(node, struct nfs_rule_entry, node);
+		ret = rulecmp(&entry->rule, rule);
+		if (ret > 0){
+			node = node->rb_left;
+		} else if (ret < 0) {
+			node = node->rb_right;
+		} else {
+			read_lock_irqrestore(&ruletreelock);
+			return node;
+		}
+	}
+	read_lock_irqrestore(&ruletreelock);
+	return NULL;
+}
+
+bool addnfsrule(const struct nfs_rule *rule)
+{
+	struct nfs_rule_entry *entry = NULL;
+	struct rb_node **newnode = NULL;
+	struct rb_node *parent = NULL;
+	int ret = 0;
+
+	read_lock_irqsave(&ruletreelock);
+
+	newnode = &ruletree.rb_node;
+
+	while(*newnode) {
+		entry = container_of(*newnode, struct nfs_rule_entry, node);
+		parent = *newnode;
+		ret = rulcmp(&(*newnode)->rule, rule);
+		if (ret > 0) {
+			newnode = &(*newnode)->rb_left;
+		} else if (ret < 0) {
+			newnode = &(*newnode)->rb_right;
+		} else {
+			read_lock_irqrestore(&ruletreelock);
+			return false;
+		}
+	}
+	read_lock_irqrestore(&ruletreelock);
+	entry = new();
+	if (entry == NULL) return false;
+	memcpy((void *)&entry->rule, (void *)rule, sizeof(struct nfs_rule));
+
+	write_lock_irqsave(&ruletreelock);
+	rb_link_node(&entry->node, parent, newnode);
+	rb_insert_color(&entry->node, &ruletree);
+	write_lock_irqrestore(&ruletreelock);
+	return true;
+}
+
+inline bool rmvnfsrule(const struct nfs_rule *rule)
+{
+	struct nfs_rule_entry *entry = NULL;
+	if (entry == NULL) return false;
+	write_lock_irqsave(&ruletreelock);
+	rb_erase(&entry->node, &ruletree);
+	write_unlock_irqrestore(&ruletreelock);
+	
+	delete(entry);
+	return true;
+
+}

@@ -6,6 +6,7 @@ struct nfs_counter_vector {
 	u64 *number;
 	u64 *bytes;
 };
+
 struct ip_counter_entry {
 	struct rb_node node;
 	nfs_ipaddr ip;/*0:addlen, 1~17 addr */
@@ -13,6 +14,7 @@ struct ip_counter_entry {
 };
 
 void nfsinit(u8 maxtype);
+u8 nfstypesize();
 struct ip_counter_entry *findipentry(const nfs_ipaddr *ip);
 bool addipentry(const nfs_ipaddr *ip);
 bool rmvipentry(const nfs_ipaddr *ip);

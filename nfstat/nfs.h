@@ -37,4 +37,11 @@ struct nfs_rule {
 	u8 padding;
 } __attribute__((aligned(sizeof(long))));
 
+static const u8 NFS_CMD_INIT = 0;
+static const u8 NFS_CMD_ADDIP = 1;
+static const u8 NFS_CMD_RMVIP = 2;
+static const u8 NFS_CMD_ADDRULE = 3;
+static const u8 NFS_CMD_RMVRULE = 4;
+static const u8 NFS_CMD_GETCOUNTER = 5;
+
 #endif

@@ -69,6 +69,10 @@ void nfsinit(u8 max)
 {
 	if (max > 0) maxtype = max;
 }
+inline u8 nfstypesize()
+{
+	return maxtype;
+}
 struct ip_counter_entry *findipentry(const nfs_ipaddr *ip)
 {
 
@@ -78,13 +82,13 @@ struct ip_counter_entry *findipentry(const nfs_ipaddr *ip)
 	if (ip == NULL) return NULL;
 
 	read_lock_irqsave(&iptreelock);
-	node = iptree->rb_node;
+	node = iptree.rb_node;
 	while(node) {
 		entry = container_of(node, struct ip_counter_entry, node);
 		ret = memcmp((void*) &entry->ip,(void*) ip, sizeof(nfs_ipaddr));
-		if (ret < 0)
+		if (ret > 0)
 			node = node->rb_left;
-		else if (result > 0)
+		else if (result < 0)
 			node = node->rb_right;
 		else {
 			read_unlock_irqrestore(&iptreelock);
@@ -105,17 +109,16 @@ bool addipentry(const nfs_ipaddr *ip)
 	int ret = 0;
 
 	read_lock_irqsave(&iptreelock);
-	newnode = &iptree->rb_node;
+	newnode = &iptree.rb_node;
 	while(*newnode) {
 		entry = container_of(*newnode, struct ip_counter_entry, node);
 		parent = *newnode;
 		ret = memcmp(&entry->ip, ip, sizeof(nfs_ipaddr));
-		if (ret < 0)
+		if (ret > 0)
 			newnode = & (*newnode)->rb_left;
-		else if (ret > )
+		else if (ret < 0)
 			newnode = & (*newnode)->rb_right;
 		else {
-
 			read_unlock_irqrestore(&iptreelock);
 			return false;
 		}
@@ -128,7 +131,7 @@ bool addipentry(const nfs_ipaddr *ip)
 	
 	write_lock_irqsave(&iptreelock);
 	rb_link_node(&entry->node, parent, newnode);
-	rb_insert_color(&entry->node, iptree);
+	rb_insert_color(&entry->node, &iptree);
 	write_unlock_irqrestore(&iptreelock);
 	return true;
 }
@@ -170,6 +173,7 @@ void getcounter_ip(const struct ip_counter_entry *entry,
 
 	read_lock_irqsave(&iptreelock);
 	for_each_possible_cpu(cpu) {
+
 		c = per_cpu_ptr(entry->counter, cpu);
 		for (i = 0; i < maxtype){
 			vector->number[i] += c->number[i];
@@ -179,5 +183,4 @@ void getcounter_ip(const struct ip_counter_entry *entry,
 
 	read_unlock_irqrestore(&iptreelock);
 }
-
 
