@@ -40,7 +40,7 @@ static inline void delete(struct ip_counter_entry *entry)
 
 static inline struct ip_counter_entry *new()
 {
-	struct ip_counter_entry *entry = kzalloc(sizeof(ip_counter_entry),
+	struct ip_counter_entry *entry = kzalloc(sizeof(struct ip_counter_entry),
 		    GFP_KERNEL);
 	struct nfs_counter_vector *c = NULL;
 	if (entry == NULL) return NULL;

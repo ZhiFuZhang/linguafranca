@@ -22,6 +22,9 @@ void incpkgbytes(struct ip_counter_entry *entry, u8 typeidx, u64 bytes);
 void getcounter_ip(const struct ip_counter_entry *entry,
 		struct nfs_counter_vector * vector);
 
-
+struct nfs_rule_entry {
+	struct rb_node node;
+	struct nfs_rule rule;
+};
 
 #endif
