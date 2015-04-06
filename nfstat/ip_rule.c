@@ -10,6 +10,11 @@
  *
  */
 
+struct nfs_rule_entry {
+	struct rb_node node;
+	struct nfs_rule rule;
+};
+
 static struct rb_root ruletree = RB_ROOT;
 DEFINE_RWLOCK(ruletreelock);
 
@@ -47,9 +52,9 @@ static inline int ipcmp(const struct nfs_ipaddr *src,
 static int rulecmp(const nfs_rule *src, const nfs_rule *dst)
 {
 	int ret = 0;
-	if (src->protocal > dst->protocal) {
+	if (src->protocol > dst->protocol) {
 		return 1;
-	} else if (src->protocal < dst ->protocal) {
+	} else if (src->protocol < dst ->protocol) {
 		return -1;
 	} 
 	if (src->dir > dst->dir) {
@@ -68,7 +73,7 @@ static int rulecmp(const nfs_rule *src, const nfs_rule *dst)
 	return 0;
 }
 
-struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule) 
+s16  findnfsrule(const struct nfs_rule *rule) 
 {
 	struct rb_node *node = NULL;
 	struct rb_rule_entry *entry = NULL;
@@ -85,11 +90,11 @@ struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule)
 			node = node->rb_right;
 		} else {
 			read_lock_irqrestore(&ruletreelock);
-			return node;
+			return entry->rule.typeidx;
 		}
 	}
 	read_lock_irqrestore(&ruletreelock);
-	return NULL;
+	return -1;
 }
 
 bool addnfsrule(const struct nfs_rule *rule)
@@ -99,31 +104,30 @@ bool addnfsrule(const struct nfs_rule *rule)
 	struct rb_node *parent = NULL;
 	int ret = 0;
 
-	read_lock_irqsave(&ruletreelock);
+	struct nfs_rule_entry *newentry = new();
+	if (newentry == NULL) return false;
+	memcpy((void *)&newentry->rule, (void *)rule, sizeof(struct nfs_rule));
 
+	write_lock_irqsave(&ruletreelock);
 	newnode = &ruletree.rb_node;
 
 	while(*newnode) {
 		entry = container_of(*newnode, struct nfs_rule_entry, node);
 		parent = *newnode;
-		ret = rulcmp(&(*newnode)->rule, rule);
+		ret = rulcmp(&entry->rule, rule);
 		if (ret > 0) {
 			newnode = &(*newnode)->rb_left;
 		} else if (ret < 0) {
 			newnode = &(*newnode)->rb_right;
 		} else {
-			read_lock_irqrestore(&ruletreelock);
+			write_lock_irqrestore(&ruletreelock);
+			delete(newentry);
 			return false;
 		}
 	}
-	read_lock_irqrestore(&ruletreelock);
-	entry = new();
-	if (entry == NULL) return false;
-	memcpy((void *)&entry->rule, (void *)rule, sizeof(struct nfs_rule));
 
-	write_lock_irqsave(&ruletreelock);
-	rb_link_node(&entry->node, parent, newnode);
-	rb_insert_color(&entry->node, &ruletree);
+	rb_link_node(&newentry->node, parent, newnode);
+	rb_insert_color(&newentry->node, &ruletree);
 	write_lock_irqrestore(&ruletreelock);
 	return true;
 }

@@ -1,13 +1,57 @@
-
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/icmp.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/sctp.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
 #include "internal.h"
 
 unsigned int hookfn(const struct nf_hook_ops *ops,
                                struct sk_buff *skb,
                                const struct net_device *in,
                                const struct net_device *out,
-                               int (*okfn)(struct sk_buff *));
+                               int (*okfn)(struct sk_buff *))
+{
+	struct nfs_rule rule = {0};
+	struct iphdr *hdr = ip_hdr(skb);
+	union {
+		struct tcphdr *tcp;
+		struct udphdr *udp;
+		struct sctphdr *sctp;
+		struct icmphdr *icmp;
+		struct igmphdr *igmp;
+	} transdata;
+	if (in ！= NULL)
+		rule.dir += 1;
+	if (out != NULL)
+		rule.dir += 2;
+	rule.protocol = hdr->protocol;
+	rule.lip.len = 4;
+	rule.rip.len = 4;
+	if (in != NULL) {
+		memcpy(rule.lip.addr, &hdr->daddr，sizeof(hdr->daddr));
+		memcpy(rule.rip.addr, &hdr->saddr，sizeof(hdr->saddr));
+	} else {
+		memcpy(rule.lip.addr, &hdr->saddr，sizeof(hdr->saddr));
+		memcpy(rule.rip.addr, &hdr->daddr，sizeof(hdr->daddr));
+	}
+	switch (hdr->protocol){
+	case:
+	case:
+	case:
+	case:
+		break;
+
+	}
+
+}
+unsigned int hookfn6(const struct nf_hook_ops *ops,
+                               struct sk_buff *skb,
+                               const struct net_device *in,
+                               const struct net_device *out,
+                               int (*okfn)(struct sk_buff *))
 
 static struct nfs_hook_ops  hooks[6] = {
 	[0] =  {
@@ -32,21 +76,21 @@ static struct nfs_hook_ops  hooks[6] = {
 		.priority = NF_IP_PRI_FIRST,
 	},
 	[3] =  {
-		.hook = hookfn,
+		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
 		.hooknum = NF_IP6_LOCAL_IN,
 		.priority = NF_IP6_PRI_FIRST,
 	},
 	[4] =  {
-		.hook = hookfn,
+		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
 		.hooknum = NF_IP6_LOCAL_OUT,
 		.priority = NF_IP6_PRI_FIRST,
 	},
 	[5] =  {
-		.hook = hookfn,
+		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
 		.hooknum = NF_IP6_FORWARD,
@@ -110,8 +154,13 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	if (ret) return 0;
 	return -EIO;
 }
+ssize_t nfs_read(struct file *, char __user *data, size_t len, loff_t *)
+{
+	return readcounter(data, len);	
+}
 static struct file_operations nfsops = {
 	.owner = THIS_OWNER,
+	.read = nfs_read,
 	.unlocked_ioctl = nfs_ioctl,
 }
 static int __init
