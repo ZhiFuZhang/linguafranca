@@ -89,11 +89,11 @@ s16  findnfsrule(const struct nfs_rule *rule)
 		} else if (ret < 0) {
 			node = node->rb_right;
 		} else {
-			read_lock_irqrestore(&ruletreelock);
+			read_unlock_irqrestore(&ruletreelock);
 			return entry->rule.typeidx;
 		}
 	}
-	read_lock_irqrestore(&ruletreelock);
+	read_unlock_irqrestore(&ruletreelock);
 	return -1;
 }
 
@@ -120,7 +120,7 @@ bool addnfsrule(const struct nfs_rule *rule)
 		} else if (ret < 0) {
 			newnode = &(*newnode)->rb_right;
 		} else {
-			write_lock_irqrestore(&ruletreelock);
+			write_unlock_irqrestore(&ruletreelock);
 			delete(newentry);
 			return false;
 		}
@@ -128,7 +128,7 @@ bool addnfsrule(const struct nfs_rule *rule)
 
 	rb_link_node(&newentry->node, parent, newnode);
 	rb_insert_color(&newentry->node, &ruletree);
-	write_lock_irqrestore(&ruletreelock);
+	write_unlock_irqrestore(&ruletreelock);
 	return true;
 }
 

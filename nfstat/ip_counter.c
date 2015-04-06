@@ -185,7 +185,7 @@ inline void inccounter(struct nfs_ipaddr *ip, u8 typeidx, u64 bytes);
 
 #define copy_counter(buf, data, len)			\
 {							\
-	ret = copy_to_user(buf, data, len);		\
+	ret = memcpy(buf, data, len);		\
 	if (ret != 0){					\
 		read_unlock_irqrestore(&iptreelock);	\
 		return -2;				\
@@ -194,7 +194,7 @@ inline void inccounter(struct nfs_ipaddr *ip, u8 typeidx, u64 bytes);
 }
 
 
-int readcounter(char __user *buf, size_t len)
+int readcounter(char  *buf, size_t len)
 {
 	struct ip_counter_entry *entry, *node;
 	struct nfs_counter_vector *c = NULL;
@@ -212,7 +212,6 @@ int readcounter(char __user *buf, size_t len)
 		return -1;
 
 	}
-	read_lock_irqsave(&iptreelock);
 	rbtree_postorder_for_each_entry_safe(entry, node, iptree, node) {
 		copy_counter(buf, &entry->ip, sizeof(nfs_ipaddr));
 		for (i = 0; i < maxtype) {

@@ -156,7 +156,16 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 ssize_t nfs_read(struct file *, char __user *data, size_t len, loff_t *)
 {
-	return readcounter(data, len);	
+	char *buf = vmalloc(len);
+	int ret = -1;
+	int s =  readcounter(buff, len);
+	if(s > 0){
+		ret = copy_to_user(data, buff, len);
+	}
+	if (ret != 0)  s = -1;
+	vfree(buf);
+	return s;
+
 }
 static struct file_operations nfsops = {
 	.owner = THIS_OWNER,
