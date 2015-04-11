@@ -11,6 +11,6 @@ void inccounter(struct nfs_ipaddr *ip, u8 typeidx, u64 bytes);
 int readcounter(char __user *buf, size_t len)
 
 /* return typeidx,  -1 not found*/
-s16  findnfsrule(const struct nfs_rule *rule) 
+s16  get_typeidx(const struct nfs_rule *rule) 
 
 #endif

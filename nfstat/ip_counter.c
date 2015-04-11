@@ -33,7 +33,7 @@ static struct rb_root iptree = RB_ROOT;
 /*only when the iptree insert/delete, it is write mode */
 DEFINE_RWLOCK(iptreelock);
 static u32 ipnumber = 0;
-static u8 maxtype = 8;
+static u8 maxtype = 0;
 
 static inline void delete(struct ip_counter_entry *entry)
 {
@@ -190,7 +190,7 @@ inline void inccounter(struct nfs_ipaddr *ip, u8 typeidx, u64 bytes);
 		read_unlock_irqrestore(&iptreelock);	\
 		return -2;				\
 	}						\
-	buf = buf_+ len;				\
+	buf = buf + len;				\
 }
 
 

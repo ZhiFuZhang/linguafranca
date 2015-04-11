@@ -73,13 +73,12 @@ static int rulecmp(const nfs_rule *src, const nfs_rule *dst)
 	return 0;
 }
 
-s16  findnfsrule(const struct nfs_rule *rule) 
+static struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule) 
 {
 	struct rb_node *node = NULL;
-	struct rb_rule_entry *entry = NULL;
+	struct nfs_rule_entry *entry = NULL;
 	int ret = 0;
 	if (rule == NULL) return NULL;
-	read_lock_irqsave(&ruletreelock);
 	node = ruletree.rb_node;
 	while(node) {
 		entry = cntainer_of(node, struct nfs_rule_entry, node);
@@ -89,12 +88,20 @@ s16  findnfsrule(const struct nfs_rule *rule)
 		} else if (ret < 0) {
 			node = node->rb_right;
 		} else {
-			read_unlock_irqrestore(&ruletreelock);
-			return entry->rule.typeidx;
+			return entry;
 		}
 	}
+	return NULL;
+}
+s16  get_typeidx(const struct nfs_rule *rule) 
+{
+	struct nfs_rule_entry *entry = NULL;
+	s16 idx = -1;
+	read_lock_irqsave(&ruletreelock);
+	entry = findnfsrule(rule);
+	idx = (entry == NULL) ? -1 :entry->typeidx;
 	read_unlock_irqrestore(&ruletreelock);
-	return -1;
+	return idx;
 }
 
 bool addnfsrule(const struct nfs_rule *rule)
@@ -135,8 +142,13 @@ bool addnfsrule(const struct nfs_rule *rule)
 inline bool rmvnfsrule(const struct nfs_rule *rule)
 {
 	struct nfs_rule_entry *entry = NULL;
-	if (entry == NULL) return false;
 	write_lock_irqsave(&ruletreelock);
+	entry = findnfsrule(rule);
+	if (entry == NULL){
+
+		write_unlock_irqrestore(&ruletreelock);
+	       	return false;
+	}
 	rb_erase(&entry->node, &ruletree);
 	write_unlock_irqrestore(&ruletreelock);
 	

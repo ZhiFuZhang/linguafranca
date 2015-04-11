@@ -112,6 +112,11 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		struct nfs_rule rule;
 	} data;
 	bool ret = true;
+	if (cmd != NFS_CMD_INIT) {
+		if (nfstypesize() == 0) {
+			return -1;
+		}
+	}
 	switch (cmd) {
 	case NFS_CMD_INIT:
 		if (copy_from_user(&data.maxtype, (u8 *)arg, sizeof(u8)))
