@@ -17,7 +17,7 @@ struct nfs_ipaddr {
 	u8 len;
 	u8 padding[3];
 	u8 addr[16]; /*the max len of ip is 16*/
-} __attribute__((aligned(sizeof(long))));
+} __attribute__((aligned(sizeof(int))));
 
 /*
  *  for lip and rip,  len 0 means it does NOT care ip addr.
@@ -32,6 +32,10 @@ struct nfs_rule {
 	struct nfs_ipaddr rip;
 	u16 lport;
 	u16 rport;
+	/* ipv6 special protocol type shall be coverted to ip4 relevant protocol
+	 * types, such as we do NOT use icmpv6, but consider it as icmp. if 
+	 * protocol is IPPROTO_HOPOPTS, we shall check the next_hdr field.
+	 */
 	u8 protocol;
 	u8 dir; /* 0 all, 1 in, 2 out, 3 forward */
 	u8 typeidx;  

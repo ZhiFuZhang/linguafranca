@@ -33,6 +33,7 @@ unsigned int hookfn(const struct nf_hook_ops *ops,
 	s16 idx = 0;
 	struct iphdr *hdr = ip_hdr(skb);
 	if (hdr == NULL) return NF_ACCEPT;
+	if (hdr->version != 4) return NF_ACCEPT;
 	if (in != NULL)
 		rule.dir += 1;
 	if (out != NULL)
@@ -92,13 +93,86 @@ unsigned int hookfn(const struct nf_hook_ops *ops,
 	return NF_ACCEPT;
 
 }
+
+
+/* ipv6 need some improment, will do it later */
 unsigned int hookfn6(const struct nf_hook_ops *ops,
                                struct sk_buff *skb,
                                const struct net_device *in,
                                const struct net_device *out,
                                int (*okfn)(struct sk_buff *))
 {
+	union {
+		struct tcphdr *tcp;
+		struct udphdr *udp;
+		struct sctphdr *sctp;
+		struct icmp6hdr *icmp;
+	} transdata;
+
+	struct nfs_rule rule = {
+		.lip = {0},
+	};
+	s16 idx = 0;
+	struct ipv6hdr *hdr = ipv6_hdr(skb);
+	if (hdr == NULL) return NF_ACCEPT;
+	if (hdr->version != 6) return NF_ACCEPT;
+	if (in != NULL)
+		rule.dir += 1;
+	if (out != NULL)
+		rule.dir += 2;
+	rule.protocol = hdr->nexthdr;
+	rule.lip.len = 6;
+	rule.rip.len = 6;
+	if (in != NULL) {
+		memcpy(&rule.lip.addr, &hdr->daddr, sizeof(hdr->daddr));
+		memcpy(&rule.rip.addr, &hdr->saddr, sizeof(hdr->saddr));
+	} else {
+		memcpy(&rule.lip.addr, &hdr->saddr, sizeof(hdr->saddr));
+		memcpy(&rule.rip.addr, &hdr->daddr, sizeof(hdr->daddr));
+	}
+	switch (rule.protocol){
+	case IPPROTO_TCP:
+		transdata.tcp = tcp_hdr(skb);
+		if (transdata.tcp == NULL) return NF_ACCEPT;
+		rule.lport =  (rule.dir == NFS_OUT ) ? transdata.tcp->source
+			: transdata.tcp->dest;
+
+		rule.rport =  (rule.dir == NFS_OUT ) ? transdata.tcp->dest
+			: transdata.tcp->source;
+		break;
+	case IPPROTO_UDP:
+		transdata.udp = udp_hdr(skb);
+		if (transdata.udp == NULL) return NF_ACCEPT;
+		rule.lport =  (rule.dir == NFS_OUT ) ? transdata.udp->source 
+			: transdata.udp->dest;
+
+		rule.rport =  (rule.dir == NFS_OUT ) ? transdata.udp->dest 
+			: transdata.udp->source;
+		break;
+	case IPPROTO_SCTP:
+		transdata.sctp = sctp_hdr(skb);
+		if (transdata.sctp == NULL) return NF_ACCEPT;
+		rule.lport =  (rule.dir == NFS_OUT ) ? transdata.sctp->source
+			: transdata.sctp->dest;
+
+		rule.rport =  (rule.dir == NFS_OUT ) ? transdata.tcp->dest
+			: transdata.sctp->source;
+
+		break;
+	case IPPROTO_ICMPV6:
+		transdata.icmp = icmp6_hdr(skb);
+		if (transdata.icmp == NULL) return NF_ACCEPT;
+	case IPPROTO_HOPOPTS:
+		break;
+
+	}
+	idx =  get_typeidx(&rule);
+	if (idx < 0 || idx > 255) return NF_ACCEPT;
+
+	inccounter(&rule.lip, idx,  hdr->payload_len);
 	return NF_ACCEPT;
+
+
 }
 
 long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
