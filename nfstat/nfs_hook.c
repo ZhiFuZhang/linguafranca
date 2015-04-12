@@ -4,6 +4,7 @@
 #include <linux/ipv6.h>
 #include <linux/icmp.h>
 #include <linux/igmp.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
@@ -12,6 +13,7 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include "internal.h"
+
 
 unsigned int hookfn(const struct nf_hook_ops *ops,
                                struct sk_buff *skb,
@@ -185,11 +187,13 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	bool ret = true;
 	if (cmd != NFS_CMD_INIT) {
 		if (nfstypesize() == 0) {
-			return -1;
+			return -EIO;
 		}
 	}
 	switch (cmd) {
 	case NFS_CMD_INIT:
+		if (nfstypesize() != 0) return  -EINVAL;
+
 		if (copy_from_user(&data.maxtype, (u8 *)arg, sizeof(u8)))
 			return -EFAULT;
 		nfsinit(data.maxtype);
@@ -244,54 +248,53 @@ ssize_t nfs_read(struct file *filep, char __user *data, size_t len, loff_t *f_op
 
 }
 
-#if 0
-static struct nfs_hook_ops  hooks[6] = {
+static struct nf_hook_ops  hooks[6] = {
+
 	[0] =  {
 		.hook = hookfn,
 		.owner = THIS_MODULE,
 		.pf = PF_INET,
-		.hooknum = NF_IP_LOCAL_IN,
+		.hooknum = NF_INET_LOCAL_IN,
 		.priority = NF_IP_PRI_FIRST,
 	},
 	[1] =  {
 		.hook = hookfn,
 		.owner = THIS_MODULE,
 		.pf = PF_INET,
-		.hooknum = NF_IP_LOCAL_OUT,
+		.hooknum = NF_INET_LOCAL_OUT,
 		.priority = NF_IP_PRI_FIRST,
 	},
 	[2] =  {
 		.hook = hookfn,
 		.owner = THIS_MODULE,
 		.pf = PF_INET,
-		.hooknum = NF_IP_FORWARD,
+		.hooknum = NF_INET_FORWARD,
 		.priority = NF_IP_PRI_FIRST,
 	},
 	[3] =  {
 		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
-		.hooknum = NF_IP6_LOCAL_IN,
+		.hooknum = NF_INET_LOCAL_IN,
 		.priority = NF_IP6_PRI_FIRST,
 	},
 	[4] =  {
 		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
-		.hooknum = NF_IP6_LOCAL_OUT,
+
+		.hooknum = NF_INET_LOCAL_OUT,
 		.priority = NF_IP6_PRI_FIRST,
 	},
 	[5] =  {
 		.hook = hookfn6,
 		.owner = THIS_MODULE,
 		.pf = PF_INET6,
-		.hooknum = NF_IP6_FORWARD,
+		.hooknum = NF_INET_FORWARD,
 		.priority = NF_IP6_PRI_FIRST,
 	},
 
 };
-#endif
-
 static struct file_operations nfsops = {
 	.owner = THIS_MODULE,
 	.read = nfs_read,
@@ -321,14 +324,14 @@ static int __init nfs_hook_init(void)
 		pr_err("cdev_add failed for nsfdev");
 		return 2;
 	}
-	//nf_register_hook(hooks);
+	nf_register_hook(hooks);
 	return 0;
 }
 
 static  void __exit  nfs_hook_exit(void)
 {
 	pr_info("nfs_hook_exit");
-	//nf_unregister_hooks(hooks);
+	nf_unregister_hooks(hooks, sizeof(hooks));
 	cdev_del(&nfsdev.dev);
 	unregister_chrdev_region(nfsdev.devno, 1);
 
