@@ -337,7 +337,7 @@ static int __init nfs_hook_init(void)
 
 	err = cdev_add(&nfsdev.dev, nfsdev.devno, 1);
 	if (err) {
-		pr_err("cdev_add failed for nsfdev");
+		pr_err("cdev_add failed for nsfdev\n");
 		return 2;
 	}
 	nf_register_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));

@@ -120,6 +120,7 @@ bool addipentry(const struct nfs_ipaddr *ip)
 	struct ip_counter_entry *newentry = create();
 	unsigned long flags = 0;
 	if (newentry == NULL) return false;
+	
 	memcpy((void*)&newentry->ip, (void*)ip, sizeof(struct nfs_ipaddr));
 	
 	write_lock_irqsave(&iptreelock, flags);
