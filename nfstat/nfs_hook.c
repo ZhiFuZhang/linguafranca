@@ -310,7 +310,7 @@ static int __init nfs_hook_init(void)
 {
 	int err = 0;
 	pr_info("nfs_hook_init");
-	err = alloc_chrdev_region(&nfsdev.devno, 0, 1, "nf-stat");
+	err = alloc_chrdev_region(&nfsdev.devno, 0, 1, NFS_DEV_NAME);
 	if (err < 0) {
 		pr_err("nf-stat failed to allocate device region");
 		return 1;
@@ -324,16 +324,18 @@ static int __init nfs_hook_init(void)
 		pr_err("cdev_add failed for nsfdev");
 		return 2;
 	}
-	nf_register_hook(hooks);
+	nf_register_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
 	return 0;
 }
 
 static  void __exit  nfs_hook_exit(void)
 {
 	pr_info("nfs_hook_exit");
-	nf_unregister_hooks(hooks, sizeof(hooks));
+	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
 	cdev_del(&nfsdev.dev);
 	unregister_chrdev_region(nfsdev.devno, 1);
+	clear_iptree();
+	clear_nfsrule();
 
 }
 MODULE_LICENSE("GPL");

@@ -167,3 +167,15 @@ inline bool rmvnfsrule(const struct nfs_rule *rule)
 	return true;
 
 }
+
+void clear_nfsrule(void)
+{
+	struct nfs_rule_entry *entry = NULL;
+	struct nfs_rule_entry *node = NULL;
+	unsigned long flags = 0;
+	write_lock_irqsave(&ruletreelock, flags);
+	nfs_rbtree_postorder_for_each_entry_safe(entry, node, &ruletree, node){
+		delete(entry);
+	}
+	write_unlock_irqrestore(&ruletreelock, flags);
+}

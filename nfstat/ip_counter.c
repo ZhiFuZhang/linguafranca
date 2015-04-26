@@ -179,11 +179,12 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 		read_unlock_irqrestore(&iptreelock, flags);
 		return;
 	}
+	local_bh_disable();
 	vector = get_cpu_ptr(entry->counter);
 	vector->number[typeidx]++;
 	vector->bytes[typeidx] += bytes;
 	put_cpu_ptr(entry->counter);
-
+	local_bh_enable();
 	read_unlock_irqrestore(&iptreelock, flags);
 
 }
@@ -233,4 +234,17 @@ int readcounter(char  *buf, size_t len)
 	}
 	read_unlock_irqrestore(&iptreelock, flags);
 	return buf - begin;
+}
+
+void clear_iptree(void)
+{
+	struct ip_counter_entry *entry = NULL;
+	struct ip_counter_entry *node = NULL;
+	
+	unsigned long flags = 0;
+	write_lock_irqsave(&iptreelock, flags);
+	nfs_rbtree_postorder_for_each_entry_safe(entry, node, &iptree, node) {
+		delete(entry);
+	}
+	write_unlock_irqrestore(&iptreelock, flags);
 }

@@ -2,7 +2,7 @@
 
 int nfs_open(void)
 {
-	int fd = open("/dev/nfs-stat");
+	int fd = open(NFS_DEV_FILE, O_RDWR);
 	return fd;
 }
 int nfs_init(int fd, __u8 maxtypenum)

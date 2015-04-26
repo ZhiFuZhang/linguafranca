@@ -1,3 +1,5 @@
+#include <fcntl.h>
+#include <sys/ioctl.h>
 #include "../nfs.h"
 #ifndef  __NFS_API_H__
 #define  __NFS_API_H__

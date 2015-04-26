@@ -51,4 +51,6 @@ struct nfs_rule {
 #define  NFS_CMD_RMVRULE  4
 #define  NFS_CMD_GETCOUNTER  5
 
+#define NFS_DEV_NAME "nf-stat"
+#define NFS_DEV_FILE "/dev/"NFS_DEV_NAME
 #endif

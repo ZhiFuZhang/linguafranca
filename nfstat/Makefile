@@ -9,7 +9,7 @@ default:
 clean:
 	make -C $(LINUX_KERNEL_PATH) M=$(CURRENT_PATH) clean
 install:
-	/sbin/insmod nfsstat.ko
+	./nfs_load
 uninstall:
-	/sbin/rmmod nfsstat.ko
+	./nfs_unload
 endif
