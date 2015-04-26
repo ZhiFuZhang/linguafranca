@@ -1,3 +1,19 @@
+/*
+ * the entrance of the module nfstat.
+ *
+ * (C) 2015  Zhi Fu Zhang <zzfooo@hotmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ *
+ */
+
+
+
+
 #include <linux/cdev.h>
 #include <linux/init.h>
 #include <linux/ip.h>
@@ -309,10 +325,10 @@ static struct nfsdevice {
 static int __init nfs_hook_init(void)
 {
 	int err = 0;
-	pr_info("nfs_hook_init");
+	pr_info("nfs_hook_init\n");
 	err = alloc_chrdev_region(&nfsdev.devno, 0, 1, NFS_DEV_NAME);
 	if (err < 0) {
-		pr_err("nf-stat failed to allocate device region");
+		pr_err("nf-stat failed to allocate device region\n");
 		return 1;
 	}
 	cdev_init(&nfsdev.dev, &nfsops);
@@ -330,7 +346,7 @@ static int __init nfs_hook_init(void)
 
 static  void __exit  nfs_hook_exit(void)
 {
-	pr_info("nfs_hook_exit");
+	pr_info("nfs_hook_exit\n");
 	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
 	cdev_del(&nfsdev.dev);
 	unregister_chrdev_region(nfsdev.devno, 1);
