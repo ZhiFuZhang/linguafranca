@@ -249,3 +249,28 @@ void clear_iptree(void)
 	}
 	write_unlock_irqrestore(&iptreelock, flags);
 }
+int read_iptree(char *buf, char **start, off_t offset, int count,
+		int *eof, void *data)
+{
+	struct ip_counter_entry *entry = NULL;
+	struct ip_counter_entry *node = NULL;
+	struct nfs_counter_vector *c = NULL;
+	int i = 0;
+	int cpu = 0;
+	unsigned long flags = 0;
+	read_lock_irqsave(&iptreelock, flags);
+	nfs_rbtree_postorder_for_each_entry_safe(entry, node, &iptree, node) {
+		for (i = 0; i < maxtype; i++) {
+			for_each_possible_cpu(cpu) {
+				c = per_cpu_ptr(entry->counter, cpu);
+			//	number += c->number[i];
+			//	bytes += c->bytes[i];
+			}
+		}
+	}
+	read_unlock_irqrestore(&iptreelock, flags);
+
+	return 0;
+}
+
+

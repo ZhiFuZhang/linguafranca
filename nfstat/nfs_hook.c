@@ -25,6 +25,7 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
+#include <linux/proc_fs.h>
 #include <linux/sctp.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
@@ -341,6 +342,9 @@ static int __init nfs_hook_init(void)
 		return 2;
 	}
 	nf_register_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
+	//deprecated
+	//create_proc_read_entry("nfstat_counter", 0, NULL, read_iptree, NULL);
+	//create_proc_read_entry("nfstat_rule", 0, NULL, read_ruletree, NULL);
 	return 0;
 }
 
@@ -350,10 +354,12 @@ static  void __exit  nfs_hook_exit(void)
 	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
 	cdev_del(&nfsdev.dev);
 	unregister_chrdev_region(nfsdev.devno, 1);
+	//remove_proc_entry("nfstat_counter", NULL);
+	//remove_proc_entry("nfstat_rule", NULL);
 	clear_iptree();
 	clear_nfsrule();
-
 }
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Zhi Fu Zhang <zzfooo@hotmail.com>");
 MODULE_DESCRIPTION("nfstat");

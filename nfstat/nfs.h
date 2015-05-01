@@ -13,6 +13,7 @@
 
 #ifndef __NFS__H__
 #define __NFS__H__
+
 #include <linux/types.h>
 
 struct nfs_ipaddr {
@@ -20,6 +21,40 @@ struct nfs_ipaddr {
 	__u8 padding[3];
 	__u8 addr[16]; /*the max len of ip is 16*/
 } __attribute__((aligned(sizeof(int))));
+
+static inline const char *
+nfs_ip2str(struct nfs_ipaddr *addr, char* buf){
+        int l = 0;
+        int i = 0;
+        int first = -1;
+        __u16 *p = (__u16 *)addr->addr;
+        char *save = buf;
+        if (addr->len == 4) {
+                sprintf(buf, "%d.%d.%d.%d", addr->addr[0],
+                                addr->addr[1], addr->addr[2], addr->addr[3]);
+                return save;
+        } else if (addr->len == 6) {
+                for (i = 0; i < sizeof(addr->addr)/sizeof(__u16); i++, p++) {
+                        if (first == -1 && *p == 0){
+                                first = i;
+                                l += sprintf(buf + l, "::");
+                        } else if (first != -1 && first != -2 && *p == 0) {
+                                continue;
+                        } else {
+                                if (first != -1 && *p != 0) {
+                                        first = -2;
+                                }
+                                l += sprintf(buf + l, "%04x", *p);
+                                if (i + 1!= sizeof(addr->addr)/sizeof(__u16)){
+                                        l += sprintf(buf + l,  ":");
+                                }
+                        }
+                }
+                return save;
+        } else {
+                return "ANYIP";
+        }
+}
 
 /*
  *  for lip and rip,  len 0 means it does NOT care ip addr.

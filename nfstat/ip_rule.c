@@ -179,3 +179,9 @@ void clear_nfsrule(void)
 	}
 	write_unlock_irqrestore(&ruletreelock, flags);
 }
+int read_ruletree(char *buf, char **start, off_t offset, int count,
+		int *eof, void *data) 
+{
+	return 0;
+}
+
