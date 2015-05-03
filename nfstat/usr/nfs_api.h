@@ -18,7 +18,10 @@
 #ifndef  __NFS_API_H__
 #define  __NFS_API_H__
 int nfs_open(void);
-int nfs_init(int fd, __u8 maxtypenum);
+
+/* return the maxtypenum */
+
+int nfs_set_type_num(int fd, __u8 maxtypenum);
 int nfs_addip(int fd, const struct nfs_ipaddr *ip);
 int nfs_delip(int fd, const struct nfs_ipaddr *ip);
 int nfs_addrule(int fd, const struct nfs_rule *rule);

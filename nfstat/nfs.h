@@ -22,8 +22,21 @@ struct nfs_ipaddr {
 	__u8 addr[16]; /*the max len of ip is 16*/
 } __attribute__((aligned(sizeof(int))));
 
+
+static inline const char *nfs_port2str(__u8 port, char *buf)
+{
+	if (port == 0){
+		sprintf(buf, "ANY");
+	} else {
+		sprintf(buf, "%d", port);
+	}
+	return buf;	
+}
+/*ipstr buffer size */
+#define NFS_IPSTR 40
 static inline const char *
-nfs_ip2str(struct nfs_ipaddr *addr, char* buf){
+nfs_ip2str(const struct nfs_ipaddr *addr, char *buf)
+{
         int l = 0;
         int i = 0;
         int first = -1;
@@ -52,7 +65,9 @@ nfs_ip2str(struct nfs_ipaddr *addr, char* buf){
                 }
                 return save;
         } else {
-                return "ANYIP";
+
+		sprintf(buf, "ANY");
+                return buf;
         }
 }
 
@@ -60,10 +75,22 @@ nfs_ip2str(struct nfs_ipaddr *addr, char* buf){
  *  for lip and rip,  len 0 means it does NOT care ip addr.
  *  for lport and rport, 0 means it does NOT car ip port.
  */
-static const __u8 NFS_ALL = 0;
-static const __u8 NFS_IN = 1;
-static const __u8 NFS_OUT = 2;
-static const __u8 NFS_FORWARD = 3;
+#define NFS_ALL	0
+#define NFS_IN	1
+#define NFS_OUT	2
+#define NFS_FORWARD	3
+static inline const char *nfs_dir2str(__u8 dir)
+{
+	switch (dir) {
+	case NFS_ALL: return "ALL";
+	case NFS_IN:  return "IN";
+	case NFS_OUT: return "OUT";
+	case NFS_FORWARD: return "FORWARD";
+	default:
+		return "unknown";
+	}
+
+}
 struct nfs_rule {
 	struct nfs_ipaddr lip;
 	struct nfs_ipaddr rip;

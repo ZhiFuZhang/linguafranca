@@ -13,29 +13,90 @@
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/rbtree.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 
 
 #include "internal.h"
 
+#define NAME_SIZE 40
 struct nfs_rule_entry {
 	struct rb_node node;
 	struct nfs_rule rule;
+	char name[NAME_SIZE];
 };
 
 static struct rb_root ruletree = RB_ROOT;
 DEFINE_RWLOCK(ruletreelock);
 
-static inline struct nfs_rule_entry *create(void)
+static int ip_rule_show(struct seq_file *m, void *v)
 {
-	struct nfs_rule_entry *entry = kzalloc(sizeof(struct nfs_rule_entry),
-		    GFP_KERNEL);
-	return entry;
+	const struct nfs_rule_entry *entry = 
+		(const struct nfs_rule_entry *)m->private;
+	char buf[NFS_IPSTR] = {0};
+
+	if (entry == NULL) return -1;
+	seq_puts(m, entry->name);
+	seq_putc(m, '\n');
+	seq_printf(m, "\trule type %d\n", entry->rule.typeidx);
+	nfs_ip2str(&entry->rule.lip, buf);
+	seq_printf(m, "\tlocalip:%s", buf);
+	nfs_port2str(entry->rule.lport, buf);	
+	seq_printf(m, "\tlocalport:%s\n", buf);
+
+	nfs_ip2str(&entry->rule.rip, buf);
+	seq_printf(m, "\tremoteip:%s", buf);
+	nfs_port2str(entry->rule.rport, buf);	
+	seq_printf(m, "\tremoteport:%s\n", buf);
+	if (entry->rule.protocol == 0) {
+		seq_puts(m, "\tprotocal:ANY");
+	} else {
+		seq_printf(m, "\tprotocal:%d", entry->rule.protocol);
+	}
+	seq_puts(m, "\tdirection:");
+	seq_puts(m, nfs_dir2str(entry->rule.dir));
+	seq_putc(m, '\n');
+	return 0;
 }
+
+static int ip_rule_single_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ip_rule_show, PDE_DATA(inode));
+}
+
 
 static inline void delete(struct nfs_rule_entry *entry)
 {
+	if (entry == NULL) return;
+	remove_proc_entry(entry->name, rule_dir);
 	kfree(entry);
+}
+
+static const struct file_operations ops = {
+	.owner          = THIS_MODULE,
+	.open           = ip_rule_single_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+static inline struct nfs_rule_entry *create(void)
+{
+
+	static u32 ipruleid = 0;
+	struct nfs_rule_entry *entry = kzalloc(sizeof(struct nfs_rule_entry),
+		    GFP_KERNEL);
+	int cpu = 0;
+	if (entry == NULL) return entry;
+	cpu = get_cpu();
+	snprintf(entry->name, sizeof(entry->name), "%x_%x", ipruleid++, cpu);
+	put_cpu();
+	if (!proc_create_data(entry->name,0444, rule_dir, &ops, entry)){
+		entry->name[0] = 0;
+		delete(entry);
+		return NULL;
+	}
+
+	return entry;
 }
 
 static inline int portcmp(u16 src, u16 dst)
@@ -179,9 +240,5 @@ void clear_nfsrule(void)
 	}
 	write_unlock_irqrestore(&ruletreelock, flags);
 }
-int read_ruletree(char *buf, char **start, off_t offset, int count,
-		int *eof, void *data) 
-{
-	return 0;
-}
+
 

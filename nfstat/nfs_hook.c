@@ -31,6 +31,10 @@
 #include <linux/udp.h>
 #include "internal.h"
 
+struct proc_dir_entry    *ipcounter_dir = NULL;
+struct proc_dir_entry    *rule_dir = NULL;
+
+
 
 unsigned int hookfn(const struct nf_hook_ops *ops,
                                struct sk_buff *skb,
@@ -202,6 +206,7 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		struct nfs_rule rule;
 	} data;
 	bool ret = true;
+	u8 s = 0;
 	if (cmd != NFS_CMD_INIT) {
 		if (nfstypesize() == 0) {
 			return -EIO;
@@ -219,7 +224,7 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&data.ip, (u8 *)arg,
 					sizeof(struct nfs_ipaddr))) 
 			return -EFAULT;
-		addipentry(&data.ip);
+		ret = addipentry(&data.ip);
 
 		break;
 	case NFS_CMD_RMVIP: 
@@ -244,6 +249,10 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		ret = rmvnfsrule(&data.rule);
 
+		break;
+	case NFS_CMD_GETCOUNTER:
+		s = nfstypesize();
+		if (copy_to_user((u8 *)arg,  &s, sizeof(s))) return -EFAULT;
 		break;
 	default:
 		return -EFAULT;
@@ -323,9 +332,29 @@ static struct nfsdevice {
 	dev_t devno;
 } nfsdev;
 
+static void nfs_hook_clean(void)
+{
+	pr_info("nfs_hook_exit\n");
+	cdev_del(&nfsdev.dev);
+	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
+	unregister_chrdev_region(nfsdev.devno, 1);
+	clear_iptree();
+	clear_nfsrule();
+
+	/* parent dir must be delted as the last step */
+	remove_proc_subtree(BASEDIR, NULL);
+}
+
+static  void __exit  nfs_hook_exit(void)
+{
+	nfs_hook_clean();
+}
 static int __init nfs_hook_init(void)
 {
 	int err = 0;
+	struct proc_dir_entry    *base_dir = NULL;
+
+
 	pr_info("nfs_hook_init\n");
 	err = alloc_chrdev_region(&nfsdev.devno, 0, 1, NFS_DEV_NAME);
 	if (err < 0) {
@@ -342,22 +371,28 @@ static int __init nfs_hook_init(void)
 		return 2;
 	}
 	nf_register_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
-	//deprecated
-	//create_proc_read_entry("nfstat_counter", 0, NULL, read_iptree, NULL);
-	//create_proc_read_entry("nfstat_rule", 0, NULL, read_ruletree, NULL);
-	return 0;
-}
 
-static  void __exit  nfs_hook_exit(void)
-{
-	pr_info("nfs_hook_exit\n");
-	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
-	cdev_del(&nfsdev.dev);
-	unregister_chrdev_region(nfsdev.devno, 1);
-	//remove_proc_entry("nfstat_counter", NULL);
-	//remove_proc_entry("nfstat_rule", NULL);
-	clear_iptree();
-	clear_nfsrule();
+	base_dir = proc_mkdir(BASEDIR, NULL);
+	if (!base_dir) {
+		pr_err("Could NOT create base dir /proc/%s\n", BASEDIR);
+		goto fail;
+	}
+	ipcounter_dir = proc_mkdir(COUNTERDIR, base_dir);
+	if (!ipcounter_dir) {
+		pr_err("Could NOT create base dir /proc/%s/%s\n",
+				BASEDIR, COUNTERDIR);
+		goto fail;
+	}
+	rule_dir = proc_mkdir(RULEDIR, base_dir);
+	if (!rule_dir) {
+		pr_err("Could NOT create base dir /proc/%s/%s\n",
+				BASEDIR,RULEDIR);
+		goto fail;
+	}	
+	return 0;
+  fail:
+	nfs_hook_clean();
+	return err;
 }
 
 MODULE_LICENSE("GPL");

@@ -19,10 +19,15 @@ int nfs_open(void)
 	int fd = open(NFS_DEV_FILE, O_RDWR);
 	return fd;
 }
-int nfs_init(int fd, __u8 maxtypenum)
-{
-	return -ioctl(fd,  NFS_CMD_INIT,  &maxtypenum);
 
+
+int nfs_set_type_num(int fd, __u8 maxtypenum)
+{
+	int err = ioctl(fd,  NFS_CMD_INIT,  &maxtypenum);
+	if (err == 0) return maxtypenum;
+	err = ioctl(fd, NFS_CMD_GETCOUNTER, &maxtypenum);
+	if (err == 0) return maxtypenum;
+	return 0;
 }
 int nfs_addip(int fd, const struct nfs_ipaddr *ip)
 {

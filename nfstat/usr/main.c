@@ -17,16 +17,37 @@ int main()
 {
 	int fd = nfs_open();
 	int ret = 0;
-	struct nfs_ipaddr ip = { 0 };
+	struct nfs_ipaddr ip = { 
+		.len = 4,
+		.addr = {
+			[0] = 223,
+			[1] = 234,
+			[2] = 97,
+			[3] = 66,
+		}	
+	
+	};
+	struct nfs_ipaddr ip2 = { 
+		.len = 4,
+		.addr = {
+			[0] = 223,
+			[1] = 234,
+			[2] = 97,
+			[3] = 166,
+		}	
+	
+	};
+
 	if (fd < 0) {
 		printf("open nfs failed, (%d)\n", fd);
 	}
-	ret = nfs_init(fd, 4);
-	if (ret != 0) {
+	ret = nfs_set_type_num(fd, 4);
+	if (ret == 0) {
 		printf("nfs_init failed, %d", ret);	
-		return -1;
+		//return -1;
 	}
 	nfs_addip(fd, &ip);
 	
+	nfs_addip(fd, &ip2);
 	return 0;
 }

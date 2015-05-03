@@ -15,6 +15,7 @@
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/rbtree.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 
 
@@ -24,11 +25,12 @@ struct nfs_counter_vector {
 	u64 *number;
 	u64 *bytes;
 };
-
+#define NAME_SIZE 16
 struct ip_counter_entry {
 	struct rb_node node;
 	struct nfs_ipaddr ip;/*0:addlen, 1~17 addr */
 	struct nfs_counter_vector *counter;
+	char name[NAME_SIZE];
 };
 
 static struct rb_root iptree = RB_ROOT;
@@ -36,12 +38,64 @@ static struct rb_root iptree = RB_ROOT;
 DEFINE_RWLOCK(iptreelock);
 static u32 ipnumber = 0;
 static u8 maxtype = 0;
+static int ip_counter_show(struct seq_file *m, void *v)
+{
+	const struct ip_counter_entry *entry = 
+		(const struct ip_counter_entry *)m->private;
+	char ipstr[NFS_IPSTR] = {0};
+	struct nfs_counter_vector *c = NULL;
+	int cpu = 0;
+	int i = 0;
+	if (entry == NULL) return -1;
+
+	nfs_ip2str(&entry->ip, ipstr);
+	seq_puts(m, ipstr);
+	seq_putc(m, ':');
+	seq_puts(m, entry->name);
+	seq_putc(m, '\n');
+
+	seq_printf(m,"%7s", "rule"); 
+	for_each_possible_cpu(cpu) {
+		seq_printf(m, "cpu%-11d", cpu);
+		seq_putc(m, '\n');
+	}
+	for (i = 0; i < maxtype; i++) {
+	
+		seq_printf(m, "  rule%-7d", i);
+		for_each_possible_cpu(cpu) {
+			c = per_cpu_ptr(entry->counter, cpu);
+			/* only print 10 number */
+				seq_printf(m, "%-11lld",
+					c->number[i] & 0x1ffffffff);
+				
+		}
+		seq_printf(m, "%-8c  ", '\n');
+		for_each_possible_cpu(cpu) {
+			c = per_cpu_ptr(entry->counter, cpu);
+			/* only print 10 numbers */
+			seq_printf(m, "%-11lld",
+					c->bytes[i] & 0x1ffffffff);
+		}
+		seq_putc(m, '\n');
+	}
+
+	seq_putc(m, '\n');
+	return 0;
+}
+
+static int ip_counter_single_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ip_counter_show, PDE_DATA(inode));
+}
+
+
 static inline void delete(struct ip_counter_entry *entry)
 {
 
 	struct nfs_counter_vector *c = NULL;
 	int cpu = 0;
 	if (entry == NULL) return;
+	remove_proc_entry(entry->name, ipcounter_dir);
 	for_each_possible_cpu(cpu) {
 		c = per_cpu_ptr(entry->counter, cpu);
 		kfree(c->number);
@@ -51,12 +105,23 @@ static inline void delete(struct ip_counter_entry *entry)
 	kfree(entry);
 }
 
+static const struct file_operations ops = {
+	.owner          = THIS_MODULE,
+	.open           = ip_counter_single_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 static inline struct ip_counter_entry *create(void)
 {
-	struct ip_counter_entry *entry = kzalloc(sizeof(struct ip_counter_entry),
-		    GFP_KERNEL);
+	struct ip_counter_entry *entry =
+		kzalloc(sizeof(struct ip_counter_entry), GFP_KERNEL);
 	struct nfs_counter_vector *c = NULL;
 	int cpu = 0;
+	static u32 ipcounterid = 0;
+
+
 	if (entry == NULL) return NULL;
 	entry->counter = NULL;
 	entry->counter = alloc_percpu(struct nfs_counter_vector);
@@ -73,7 +138,14 @@ static inline struct ip_counter_entry *create(void)
 			return NULL;
 		}
 	}
-	
+	cpu = get_cpu();
+	snprintf(entry->name, sizeof(entry->name), "%x_%x", ipcounterid++, cpu);
+	put_cpu();
+	if (!proc_create_data(entry->name,0444, ipcounter_dir, &ops, entry)){
+		entry->name[0] = 0;
+		delete(entry);
+		return NULL;
+	}
 	return entry;
 }
 
@@ -87,6 +159,7 @@ inline u8 nfstypesize()
 {
 	return maxtype;
 }
+
 static struct ip_counter_entry *findipentry(const struct nfs_ipaddr *ip)
 {
 	struct rb_node *node = NULL;
@@ -117,11 +190,18 @@ bool addipentry(const struct nfs_ipaddr *ip)
 	struct rb_node **newnode = NULL;
 	struct rb_node *parent = NULL;
 	int ret = 0;
-	struct ip_counter_entry *newentry = create();
+	struct ip_counter_entry *newentry = NULL; 
 	unsigned long flags = 0;
+	char name[NFS_IPSTR] = {0};
+
+	if (ip->len == 0) return false;
+
+       	newentry = create();
 	if (newentry == NULL) return false;
-	
-	memcpy((void*)&newentry->ip, (void*)ip, sizeof(struct nfs_ipaddr));
+	pr_debug("add ipcounter for [%s]\n", nfs_ip2str(ip, name));		
+	newentry->ip.len = ip->len;
+	memcpy((void*)newentry->ip.addr, (void*)ip->addr, 
+			ip->len);
 	
 	write_lock_irqsave(&iptreelock, flags);
 	newnode = &iptree.rb_node;
@@ -187,7 +267,6 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	put_cpu_ptr(entry->counter);
 	local_bh_enable();
 	read_unlock_irqrestore(&iptreelock, flags);
-
 }
 
 #define copy_counter(buf, data, len)			\
@@ -248,29 +327,6 @@ void clear_iptree(void)
 		delete(entry);
 	}
 	write_unlock_irqrestore(&iptreelock, flags);
-}
-int read_iptree(char *buf, char **start, off_t offset, int count,
-		int *eof, void *data)
-{
-	struct ip_counter_entry *entry = NULL;
-	struct ip_counter_entry *node = NULL;
-	struct nfs_counter_vector *c = NULL;
-	int i = 0;
-	int cpu = 0;
-	unsigned long flags = 0;
-	read_lock_irqsave(&iptreelock, flags);
-	nfs_rbtree_postorder_for_each_entry_safe(entry, node, &iptree, node) {
-		for (i = 0; i < maxtype; i++) {
-			for_each_possible_cpu(cpu) {
-				c = per_cpu_ptr(entry->counter, cpu);
-			//	number += c->number[i];
-			//	bytes += c->bytes[i];
-			}
-		}
-	}
-	read_unlock_irqrestore(&iptreelock, flags);
-
-	return 0;
 }
 
 
