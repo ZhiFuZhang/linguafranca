@@ -2,7 +2,7 @@
 
 module="nfstat"
 device="nf-stat"
-mode="664"
+mode="666"
 
 if grep '^staff:' /etc/group > /dev/null; then
     group="staff"

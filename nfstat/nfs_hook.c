@@ -52,6 +52,9 @@ unsigned int hookfn(const struct nf_hook_ops *ops,
 
 	struct nfs_rule rule = {
 		.lip = {0},
+		.rip = {0},
+		.lport = 0,
+		.rport = 0,
 	};
 	s16 idx = 0;
 	struct iphdr *hdr = ip_hdr(skb);
@@ -65,11 +68,11 @@ unsigned int hookfn(const struct nf_hook_ops *ops,
 	rule.lip.len = 4;
 	rule.rip.len = 4;
 	if (in != NULL) {
-		memcpy(&rule.lip.addr, &hdr->daddr, sizeof(hdr->daddr));
-		memcpy(&rule.rip.addr, &hdr->saddr, sizeof(hdr->saddr));
+		memcpy(&rule.lip.addr, &hdr->daddr, rule.lip.len);
+		memcpy(&rule.rip.addr, &hdr->saddr, rule.rip.len);
 	} else {
-		memcpy(&rule.lip.addr, &hdr->saddr, sizeof(hdr->saddr));
-		memcpy(&rule.rip.addr, &hdr->daddr, sizeof(hdr->daddr));
+		memcpy(&rule.lip.addr, &hdr->saddr, rule.lip.len);
+		memcpy(&rule.rip.addr, &hdr->daddr, rule.rip.len);
 	}
 	switch (hdr->protocol){
 	case IPPROTO_TCP:
@@ -109,10 +112,13 @@ unsigned int hookfn(const struct nf_hook_ops *ops,
 		break;
 
 	}
+
+	rule.lport = ntohs(rule.lport);
+	rule.rport = ntohs(rule.rport);
 	idx =  get_typeidx(&rule);
 	if (idx < 0 || idx > 255) return NF_ACCEPT;
 
-	inccounter(&rule.lip, idx,  hdr->tot_len);
+	inccounter(&rule.lip, idx,  skb->len);
 	return NF_ACCEPT;
 
 }
@@ -189,10 +195,12 @@ unsigned int hookfn6(const struct nf_hook_ops *ops,
 		break;
 
 	}
+	rule.lport = ntohs(rule.lport);
+	rule.rport = ntohs(rule.rport);
 	idx =  get_typeidx(&rule);
 	if (idx < 0 || idx > 255) return NF_ACCEPT;
 
-	inccounter(&rule.lip, idx,  hdr->payload_len);
+	inccounter(&rule.lip, idx, skb->len);
 	return NF_ACCEPT;
 
 

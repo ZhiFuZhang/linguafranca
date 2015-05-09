@@ -10,7 +10,7 @@
  *
  *
  */
-
+#include <linux/in.h>
 #include <stdio.h>
 #include "nfs_api.h"
 int main()
@@ -20,23 +20,23 @@ int main()
 	struct nfs_ipaddr ip = { 
 		.len = 4,
 		.addr = {
-			[0] = 223,
-			[1] = 234,
-			[2] = 97,
-			[3] = 66,
+			[0] = 192,
+			[1] = 168,
+			[2] = 1,
+			[3] = 104,
 		}	
 	
 	};
 	struct nfs_ipaddr ip2 = { 
 		.len = 4,
 		.addr = {
-			[0] = 223,
-			[1] = 234,
-			[2] = 97,
-			[3] = 166,
+			[0] = 10,
+			[1] = 0,
+			[2] = 3,
+			[3] = 15,
 		}	
 	
-	};
+	}; 
 
 	if (fd < 0) {
 		printf("open nfs failed, (%d)\n", fd);
@@ -47,7 +47,67 @@ int main()
 		//return -1;
 	}
 	nfs_addip(fd, &ip);
-	
+
+	struct nfs_rule rule = {
+		.lip = {
+			.len = 0,
+		},
+		.rip = {
+			.len = 0,
+		},
+		.lport = 0,
+		.rport = 0,
+		.protocol = IPPROTO_ICMP,
+		.dir = NFS_ALL,
+		.typeidx = 0,
+
+	};
+
+	struct nfs_rule rule2 = {
+		.lip = {
+			.len = 0,
+		},
+		.rip = {
+			.len = 0,
+		},
+		.lport = 0,
+		.rport = 0,
+		.protocol = IPPROTO_TCP,
+		.dir = NFS_OUT,
+		.typeidx = 1,
+	};
+	struct nfs_rule rule3 = {
+		.lip = {
+			.len = 0,
+		},
+		.rip = {
+			.len = 0,
+		},
+		.lport = 0,
+		.rport = 80,
+		.protocol = IPPROTO_TCP,
+		.dir = NFS_IN,
+		.typeidx = 2,
+	};
+	struct nfs_rule rule4 = {
+		.lip = {
+			.len = 0,
+		},
+		.rip = {
+			.len = 0,
+		},
+		.lport = 0,
+		.rport = 80,
+		.protocol = IPPROTO_TCP,
+		.dir = NFS_OUT,
+		.typeidx = 3,
+
+	};
+	nfs_addrule(fd, &rule);
+
+	nfs_addrule(fd, &rule3);
+	nfs_addrule(fd, &rule4);
+	nfs_addrule(fd, &rule2);
 	nfs_addip(fd, &ip2);
 	return 0;
 }

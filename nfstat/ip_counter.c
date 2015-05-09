@@ -42,44 +42,45 @@ static int ip_counter_show(struct seq_file *m, void *v)
 {
 	const struct ip_counter_entry *entry = 
 		(const struct ip_counter_entry *)m->private;
-	char ipstr[NFS_IPSTR] = {0};
+	char tmp[NFS_IPSTR] = {0};
 	struct nfs_counter_vector *c = NULL;
 	int cpu = 0;
 	int i = 0;
 	if (entry == NULL) return -1;
 
-	nfs_ip2str(&entry->ip, ipstr);
-	seq_puts(m, ipstr);
-	seq_putc(m, ':');
+	nfs_ip2str(&entry->ip, tmp);
+	seq_puts(m, tmp);
+	seq_putc(m, ',');
 	seq_puts(m, entry->name);
 	seq_putc(m, '\n');
 
-	seq_printf(m,"%7s", "rule"); 
+	seq_printf(m,"  %3s", "R"); 
 	for_each_possible_cpu(cpu) {
-		seq_printf(m, "cpu%-11d", cpu);
+		sprintf(tmp, "cpu%d", cpu);	
+		seq_printf(m, " %10s", tmp);
 		seq_putc(m, '\n');
 	}
 	for (i = 0; i < maxtype; i++) {
 	
-		seq_printf(m, "  rule%-7d", i);
+		seq_printf(m, "  %3d", i);
 		for_each_possible_cpu(cpu) {
 			c = per_cpu_ptr(entry->counter, cpu);
 			/* only print 10 number */
-				seq_printf(m, "%-11lld",
+				seq_printf(m, " %10lld",
 					c->number[i] & 0x1ffffffff);
 				
 		}
-		seq_printf(m, "%-8c  ", '\n');
+		seq_printf(m, "%-3c   ", '\n');
 		for_each_possible_cpu(cpu) {
 			c = per_cpu_ptr(entry->counter, cpu);
 			/* only print 10 numbers */
-			seq_printf(m, "%-11lld",
+			seq_printf(m, " %10lld",
 					c->bytes[i] & 0x1ffffffff);
 		}
 		seq_putc(m, '\n');
 	}
 
-	seq_putc(m, '\n');
+	seq_puts(m, "Only 10 digists of the number will be shown\n");
 	return 0;
 }
 
@@ -198,7 +199,8 @@ bool addipentry(const struct nfs_ipaddr *ip)
 
        	newentry = create();
 	if (newentry == NULL) return false;
-	pr_debug("add ipcounter for [%s]\n", nfs_ip2str(ip, name));		
+	printk(KERN_DEBUG"debug.add ipcounter for [%s]\n",
+		nfs_ip2str(ip, name));
 	newentry->ip.len = ip->len;
 	memcpy((void*)newentry->ip.addr, (void*)ip->addr, 
 			ip->len);
@@ -253,11 +255,16 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	struct ip_counter_entry *entry = NULL;
 	struct nfs_counter_vector *vector = NULL;
 	unsigned long flags;
+	char name[NFS_IPSTR] = {0};
+	printk(KERN_DEBUG"debug.add ipcounter for [%s]\n",
+				nfs_ip2str(ip, name));
+
 	read_lock_irqsave(&iptreelock, flags);
 
 	entry = findipentry(ip);
 	if (entry == NULL) {
 		read_unlock_irqrestore(&iptreelock, flags);
+		printk(KERN_DEBUG"debug.no ip counter entry\n");
 		return;
 	}
 	local_bh_disable();

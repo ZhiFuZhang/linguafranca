@@ -114,7 +114,13 @@ static inline int ipcmp(const struct nfs_ipaddr *src,
 		const struct nfs_ipaddr *dst)
 {
 	if (src->len != 0 && dst->len != 0) {
-		return memcmp(src, dst, sizeof(struct nfs_ipaddr));
+		if (src->len > dst->len) {
+			return 1;
+		} else if (src->len < dst->len) {
+			return -1;
+		} else {
+			return memcmp(src->addr, dst->addr, src->len);
+		}
 	}
 	return 0;
 }
@@ -122,21 +128,34 @@ static int rulecmp(const struct nfs_rule *src, const struct nfs_rule *dst)
 {
 	int ret = 0;
 	if (src->protocol > dst->protocol) {
+		printk(KERN_DEBUG"protocol >\n");
 		return 1;
 	} else if (src->protocol < dst ->protocol) {
+
+		printk(KERN_DEBUG"protocol <\n");
 		return -1;
 	} 
-	if (src->dir > dst->dir) {
-		return 1;
-	} else if (src->dir < dst->dir) {
-		return -1;
+	if (src->dir != NFS_ALL && dst->dir != NFS_ALL)
+	{
+		if (src->dir > dst->dir) {
+			printk(KERN_DEBUG"dir >\n");
+			return 1;
+		} else if (src->dir < dst->dir) {
+			printk(KERN_DEBUG"dir <\n");
+			return -1;
+		}
 	}
 	ret = portcmp(src->lport, dst->lport);
+	printk(KERN_DEBUG"lport cmp\n");
 	if (ret !=0) return ret;
 	ret = portcmp(src->rport, dst->rport);
+	printk(KERN_DEBUG"rport cmp\n");
 	if (ret !=0) return ret;
+
+	printk(KERN_DEBUG"lip cmp\n");
 	ret = ipcmp(&src->lip, &dst->lip);
 	if (ret !=0) return ret;
+	printk(KERN_DEBUG"rip cmp\n");
 	ret = ipcmp(&src->rip, &dst->rip);
 	if (ret !=0) return ret;
 	return 0;
@@ -147,19 +166,35 @@ static struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule)
 	struct rb_node *node = NULL;
 	struct nfs_rule_entry *entry = NULL;
 	int ret = 0;
+	char buf[NFS_IPSTR] = {0};
 	if (rule == NULL) return NULL;
+
+	printk(KERN_DEBUG"debug.find rule begin >>>>>>>>>>\n");
+	printk(KERN_DEBUG"debug.find rule, lip[%s]\n", 
+				nfs_ip2str(&rule->lip, buf));
+	printk(KERN_DEBUG"debug.find rule, rip[%s]\n", 
+				nfs_ip2str(&rule->rip, buf));
+	printk(KERN_DEBUG"debug.find rule, lport[%d]\n", rule->lport);
+	printk(KERN_DEBUG"debug.find rule, rport[%d]\n", rule->rport); 
+
 	node = ruletree.rb_node;
 	while(node) {
 		entry = container_of(node, struct nfs_rule_entry, node);
-		ret = rulecmp(&entry->rule, rule);
-		if (ret > 0){
+		ret = rulecmp(rule, &entry->rule);
+		if (ret < 0){
 			node = node->rb_left;
-		} else if (ret < 0) {
+		} else if (ret > 0) {
 			node = node->rb_right;
 		} else {
+
+			printk(KERN_DEBUG"debug.rule is here @@@\n");
 			return entry;
 		}
 	}
+
+	printk(KERN_DEBUG"debug.rule not found\n");
+
+	printk(KERN_DEBUG"debug.find rule end <<<<<<<<\n");
 	return NULL;
 }
 s16  get_typeidx(const struct nfs_rule *rule) 
@@ -171,6 +206,8 @@ s16  get_typeidx(const struct nfs_rule *rule)
 	entry = findnfsrule(rule);
 	idx = (entry == NULL) ? -1 : entry->rule.typeidx;
 	read_unlock_irqrestore(&ruletreelock, flags);
+	/*for pr_debug function, it is determined at compiled time */
+	printk(KERN_DEBUG"debug.get_typeidx [%d]\n", idx);
 	return idx;
 }
 
@@ -192,10 +229,10 @@ bool addnfsrule(const struct nfs_rule *rule)
 	while(*newnode) {
 		entry = container_of(*newnode, struct nfs_rule_entry, node);
 		parent = *newnode;
-		ret = rulecmp(&entry->rule, rule);
-		if (ret > 0) {
+		ret = rulecmp(rule, &entry->rule);
+		if (ret < 0) {
 			newnode = &(*newnode)->rb_left;
-		} else if (ret < 0) {
+		} else if (ret > 0) {
 			newnode = &(*newnode)->rb_right;
 		} else {
 			write_unlock_irqrestore(&ruletreelock, flags);
