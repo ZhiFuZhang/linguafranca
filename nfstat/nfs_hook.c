@@ -215,6 +215,17 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	} data;
 	bool ret = true;
 	u8 s = 0;
+	int err = 0;
+	int cmdnum = 0;
+	if (_IOC_TYPE(cmd) != NFS_CMD_MAGIC) return -ENOTTY;
+	cmdnum = _IOC_NR(cmd);
+	pr_debug("NFS_CMD_NUM:[%d]\n", cmdnum);
+	if (_IOC_DIR(cmd) & _IOC_READ)
+		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+	else if (_IOC_DIR(cmd) & _IOC_WRITE)
+		err =  !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
+	if (err) return -EFAULT;
+
 	if (cmd != NFS_CMD_INIT) {
 		if (nfstypesize() == 0) {
 			return -EIO;
@@ -236,9 +247,11 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		break;
 	case NFS_CMD_RMVIP: 
+		pr_debug("NFS_CMD_RMVIP\n");
 		if (copy_from_user(&data.ip, (u8 *)arg,
 					sizeof(struct nfs_ipaddr))) 
 			return -EFAULT;
+
 		ret = rmvipentry(&data.ip);
 
 
@@ -363,7 +376,12 @@ static int __init nfs_hook_init(void)
 	struct proc_dir_entry    *base_dir = NULL;
 
 
+#ifdef DEBUG
+	pr_info("nfs_hook_init, debug mode\n");
+#else
 	pr_info("nfs_hook_init\n");
+#endif
+
 	err = alloc_chrdev_region(&nfsdev.devno, 0, 1, NFS_DEV_NAME);
 	if (err < 0) {
 		pr_err("nf-stat failed to allocate device region\n");

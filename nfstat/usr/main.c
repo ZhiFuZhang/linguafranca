@@ -12,6 +12,7 @@
  */
 #include <linux/in.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "nfs_api.h"
 int main()
 {
@@ -109,5 +110,9 @@ int main()
 	nfs_addrule(fd, &rule4);
 	nfs_addrule(fd, &rule2);
 	nfs_addip(fd, &ip2);
+	sleep(60);
+	nfs_delrule(fd, &rule);
+	ret = nfs_delip(fd, &ip);
+	printf("delip [%d]\n", ret);
 	return 0;
 }

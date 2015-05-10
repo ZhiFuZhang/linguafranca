@@ -128,34 +128,34 @@ static int rulecmp(const struct nfs_rule *src, const struct nfs_rule *dst)
 {
 	int ret = 0;
 	if (src->protocol > dst->protocol) {
-		printk(KERN_DEBUG"protocol >\n");
+		pr_debug("protocol >\n");
 		return 1;
 	} else if (src->protocol < dst ->protocol) {
 
-		printk(KERN_DEBUG"protocol <\n");
+		pr_debug("protocol <\n");
 		return -1;
 	} 
 	if (src->dir != NFS_ALL && dst->dir != NFS_ALL)
 	{
 		if (src->dir > dst->dir) {
-			printk(KERN_DEBUG"dir >\n");
+			pr_debug("dir >\n");
 			return 1;
 		} else if (src->dir < dst->dir) {
-			printk(KERN_DEBUG"dir <\n");
+			pr_debug("dir <\n");
 			return -1;
 		}
 	}
 	ret = portcmp(src->lport, dst->lport);
-	printk(KERN_DEBUG"lport cmp\n");
+	pr_debug("lport cmp\n");
 	if (ret !=0) return ret;
 	ret = portcmp(src->rport, dst->rport);
-	printk(KERN_DEBUG"rport cmp\n");
+	pr_debug("rport cmp\n");
 	if (ret !=0) return ret;
 
-	printk(KERN_DEBUG"lip cmp\n");
+	pr_debug("lip cmp\n");
 	ret = ipcmp(&src->lip, &dst->lip);
 	if (ret !=0) return ret;
-	printk(KERN_DEBUG"rip cmp\n");
+	pr_debug("rip cmp\n");
 	ret = ipcmp(&src->rip, &dst->rip);
 	if (ret !=0) return ret;
 	return 0;
@@ -169,13 +169,13 @@ static struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule)
 	char buf[NFS_IPSTR] = {0};
 	if (rule == NULL) return NULL;
 
-	printk(KERN_DEBUG"debug.find rule begin >>>>>>>>>>\n");
-	printk(KERN_DEBUG"debug.find rule, lip[%s]\n", 
+	pr_debug("debug.find rule begin >>>>>>>>>>\n");
+	pr_debug("debug.find rule, lip[%s]\n", 
 				nfs_ip2str(&rule->lip, buf));
-	printk(KERN_DEBUG"debug.find rule, rip[%s]\n", 
+	pr_debug("debug.find rule, rip[%s]\n", 
 				nfs_ip2str(&rule->rip, buf));
-	printk(KERN_DEBUG"debug.find rule, lport[%d]\n", rule->lport);
-	printk(KERN_DEBUG"debug.find rule, rport[%d]\n", rule->rport); 
+	pr_debug("debug.find rule, lport[%d]\n", rule->lport);
+	pr_debug("debug.find rule, rport[%d]\n", rule->rport); 
 
 	node = ruletree.rb_node;
 	while(node) {
@@ -187,14 +187,14 @@ static struct nfs_rule_entry  *findnfsrule(const struct nfs_rule *rule)
 			node = node->rb_right;
 		} else {
 
-			printk(KERN_DEBUG"debug.rule is here @@@\n");
+			pr_debug("debug.rule is here @@@\n");
 			return entry;
 		}
 	}
 
-	printk(KERN_DEBUG"debug.rule not found\n");
+	pr_debug("debug.rule not found\n");
 
-	printk(KERN_DEBUG"debug.find rule end <<<<<<<<\n");
+	pr_debug("debug.find rule end <<<<<<<<\n");
 	return NULL;
 }
 s16  get_typeidx(const struct nfs_rule *rule) 
@@ -207,7 +207,7 @@ s16  get_typeidx(const struct nfs_rule *rule)
 	idx = (entry == NULL) ? -1 : entry->rule.typeidx;
 	read_unlock_irqrestore(&ruletreelock, flags);
 	/*for pr_debug function, it is determined at compiled time */
-	printk(KERN_DEBUG"debug.get_typeidx [%d]\n", idx);
+	pr_debug("debug.get_typeidx [%d]\n", idx);
 	return idx;
 }
 
@@ -222,6 +222,7 @@ bool addnfsrule(const struct nfs_rule *rule)
 	struct nfs_rule_entry *newentry = create();
 	if (newentry == NULL) return false;
 	memcpy((void *)&newentry->rule, (void *)rule, sizeof(struct nfs_rule));
+	pr_info("add ip rule for type[%d]\n", rule->typeidx);
 
 	write_lock_irqsave(&ruletreelock, flags);
 	newnode = &ruletree.rb_node;
@@ -251,6 +252,7 @@ inline bool rmvnfsrule(const struct nfs_rule *rule)
 {
 	struct nfs_rule_entry *entry = NULL;
 	unsigned long flags =0;
+
 	write_lock_irqsave(&ruletreelock, flags);
 	entry = findnfsrule(rule);
 	if (entry == NULL){
@@ -261,6 +263,7 @@ inline bool rmvnfsrule(const struct nfs_rule *rule)
 	rb_erase(&entry->node, &ruletree);
 	write_unlock_irqrestore(&ruletreelock, flags);
 	
+	pr_info("rmv ip rule for type[%d]\n", entry->rule.typeidx);
 	delete(entry);
 	return true;
 

@@ -1,7 +1,7 @@
 
 SRC = nfs_api.c main.c
 OBJ = $(SRC:.c=.o)
-
+MIDDLe = $($SRC:.c=.sc)
 PROGRAM = nfstest
 CC = gcc
 
@@ -17,8 +17,10 @@ $(PROGRAM):$(OBJ)
 .SUFFIXES : .c
 
 .c.o:
-	$(CC) $(INCLUDE) $(CFLAGS) -c $<
+	$(CC) $(INCLUDE) $(CFLAGS) -c  $<
 
+middle:
+	$(CC) $(INCLUDE) $(CFLAGS) -E $(SRC) > middle.c.s
 clean:
-	-rm  -f $(OBJ) $(PROGRAM)
+	-rm  -f $(OBJ) $(PROGRAM) middle.c.s
 

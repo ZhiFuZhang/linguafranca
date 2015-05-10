@@ -16,7 +16,7 @@
 
 int nfs_open(void)
 {
-	int fd = open(NFS_DEV_FILE, O_RDWR);
+	int fd = open(NFS_DEV_FILE, O_RDONLY);
 	return fd;
 }
 

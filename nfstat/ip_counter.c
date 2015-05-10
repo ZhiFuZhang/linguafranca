@@ -177,6 +177,8 @@ static struct ip_counter_entry *findipentry(const struct nfs_ipaddr *ip)
 		else if (ret < 0)
 			node = node->rb_right;
 		else {
+
+			pr_debug("debug.rule is here @@@\n");
 			return entry;
 		}
 	}
@@ -199,7 +201,7 @@ bool addipentry(const struct nfs_ipaddr *ip)
 
        	newentry = create();
 	if (newentry == NULL) return false;
-	printk(KERN_DEBUG"debug.add ipcounter for [%s]\n",
+	pr_info("add ipcounter for [%s]\n",
 		nfs_ip2str(ip, name));
 	newentry->ip.len = ip->len;
 	memcpy((void*)newentry->ip.addr, (void*)ip->addr, 
@@ -233,16 +235,19 @@ inline bool rmvipentry(const struct nfs_ipaddr *ip)
 {
 	struct ip_counter_entry *entry = NULL;
 	unsigned long flags;
+	char name[NFS_IPSTR] = {0};
+
 	write_lock_irqsave(&iptreelock, flags);
 	entry = findipentry(ip);
 	if (entry == NULL) {
-
 		write_unlock_irqrestore(&iptreelock, flags);
+		pr_err("can NOT remove no such entry[%s]\n", nfs_ip2str(ip, name));
 		return false;
 	}
 	rb_erase(&entry->node, &iptree);
 	ipnumber--;
 	write_unlock_irqrestore(&iptreelock, flags);
+	pr_info("rmv ipcounter for [%s]\n", entry->name);
 
 	delete(entry);
 	return true;
@@ -256,7 +261,7 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	struct nfs_counter_vector *vector = NULL;
 	unsigned long flags;
 	char name[NFS_IPSTR] = {0};
-	printk(KERN_DEBUG"debug.add ipcounter for [%s]\n",
+	pr_debug("debug.add ipcounter for [%s]\n",
 				nfs_ip2str(ip, name));
 
 	read_lock_irqsave(&iptreelock, flags);
@@ -264,7 +269,7 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	entry = findipentry(ip);
 	if (entry == NULL) {
 		read_unlock_irqrestore(&iptreelock, flags);
-		printk(KERN_DEBUG"debug.no ip counter entry\n");
+		pr_debug("debug.no ip counter entry\n");
 		return;
 	}
 	local_bh_disable();

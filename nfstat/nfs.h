@@ -106,13 +106,23 @@ struct nfs_rule {
 	__u8 padding;
 } __attribute__((aligned(sizeof(long))));
 
-#define  NFS_CMD_INIT  0
-#define  NFS_CMD_ADDIP  1
-#define  NFS_CMD_RMVIP  2
-#define  NFS_CMD_ADDRULE  3
-#define  NFS_CMD_RMVRULE  4
-#define  NFS_CMD_GETCOUNTER  5
+#define  NFS_CMD_MAGIC 'n'
 
+enum {
+NFS_CMD_INIT_NUM,
+#define  NFS_CMD_INIT  _IOW(NFS_CMD_MAGIC, NFS_CMD_INIT_NUM, __u8)
+NFS_CMD_ADDIP_NUM,
+#define  NFS_CMD_ADDIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDIP_NUM, struct nfs_ipaddr) 
+NFS_CMD_RMVIP_NUM,
+#define  NFS_CMD_RMVIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_RMVIP_NUM, struct nfs_ipaddr)
+NFS_CMD_ADDRULE_NUM,
+#define  NFS_CMD_ADDRULE  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDRULE_NUM, struct nfs_rule)
+NFS_CMD_RMVRULE_NUM,
+#define  NFS_CMD_RMVRULE  _IOW(NFS_CMD_MAGIC, 5, struct nfs_rule)
+NFS_CMD_GETCOUNTER_NUM,
+#define  NFS_CMD_GETCOUNTER  _IOR(NFS_CMD_MAGIC, 6, __u8)
+NFS_CMD_MAX
+};
 #define NFS_DEV_NAME "nf-stat"
 #define NFS_DEV_FILE "/dev/"NFS_DEV_NAME
 #endif
