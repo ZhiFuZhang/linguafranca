@@ -22,14 +22,14 @@
 #include "internal.h"
 
 struct nfs_counter_vector {
-	u64 *number;
-	u64 *bytes;
+	u64 number;
+	u64 bytes;
 };
 #define NAME_SIZE 16
 struct ip_counter_entry {
 	struct rb_node node;
 	struct nfs_ipaddr ip;/*0:addlen, 1~17 addr */
-	struct nfs_counter_vector *counter;
+	struct nfs_counter_vector * __percpu counter;
 	char name[NAME_SIZE];
 };
 
@@ -67,7 +67,7 @@ static int ip_counter_show(struct seq_file *m, void *v)
 			c = per_cpu_ptr(entry->counter, cpu);
 			/* only print 10 number */
 				seq_printf(m, " %10lld",
-					c->number[i] & 0x1ffffffff);
+					c[i].number & 0x1ffffffff);
 				
 		}
 		seq_printf(m, "%-3c   ", '\n');
@@ -75,7 +75,7 @@ static int ip_counter_show(struct seq_file *m, void *v)
 			c = per_cpu_ptr(entry->counter, cpu);
 			/* only print 10 numbers */
 			seq_printf(m, " %10lld",
-					c->bytes[i] & 0x1ffffffff);
+					c[i].bytes & 0x1ffffffff);
 		}
 		seq_putc(m, '\n');
 	}
@@ -93,15 +93,8 @@ static int ip_counter_single_open(struct inode *inode, struct file *file)
 static inline void delete(struct ip_counter_entry *entry)
 {
 
-	struct nfs_counter_vector *c = NULL;
-	int cpu = 0;
 	if (entry == NULL) return;
 	remove_proc_entry(entry->name, ipcounter_dir);
-	for_each_possible_cpu(cpu) {
-		c = per_cpu_ptr(entry->counter, cpu);
-		kfree(c->number);
-		kfree(c->bytes);
-	}
 	free_percpu(entry->counter);
 	kfree(entry);
 }
@@ -118,26 +111,17 @@ static inline struct ip_counter_entry *create(void)
 {
 	struct ip_counter_entry *entry =
 		kzalloc(sizeof(struct ip_counter_entry), GFP_KERNEL);
-	struct nfs_counter_vector *c = NULL;
 	int cpu = 0;
 	static u32 ipcounterid = 0;
 
 
 	if (entry == NULL) return NULL;
 	entry->counter = NULL;
-	entry->counter = alloc_percpu(struct nfs_counter_vector);
+	entry->counter = __alloc_percpu(maxtype * sizeof(struct nfs_counter_vector),
+			sizeof(struct nfs_counter_vector));
 	if (entry->counter == NULL) {
 		delete(entry);
 		return NULL;
-	}
-	for_each_possible_cpu(cpu) {
-		c = per_cpu_ptr(entry->counter, cpu);
-		c->number = kzalloc(sizeof(u64) * maxtype, GFP_KERNEL);
-		c->bytes = kzalloc(sizeof(u64) * maxtype, GFP_KERNEL);  
-		if (c->number == NULL || c->bytes == NULL) {
-			delete(entry);
-			return NULL;
-		}
 	}
 	cpu = get_cpu();
 	snprintf(entry->name, sizeof(entry->name), "%x_%x", ipcounterid++, cpu);
@@ -274,8 +258,8 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	}
 	local_bh_disable();
 	vector = get_cpu_ptr(entry->counter);
-	vector->number[typeidx]++;
-	vector->bytes[typeidx] += bytes;
+	vector[typeidx].number++;
+	vector[typeidx].bytes += bytes;
 	put_cpu_ptr(entry->counter);
 	local_bh_enable();
 	read_unlock_irqrestore(&iptreelock, flags);
@@ -317,8 +301,8 @@ int readcounter(char  *buf, size_t len)
 			bytes = 0;
 			for_each_possible_cpu(cpu) {
 				c = per_cpu_ptr(entry->counter, cpu);
-				number += c->number[i];
-				bytes += c->bytes[i];
+				number += c[i].number;
+				bytes += c[i].bytes;
 			}
 			copy_counter(buf, &number, sizeof(u64));
 			copy_counter(buf, &bytes, sizeof(u64));
