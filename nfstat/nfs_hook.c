@@ -212,19 +212,27 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		u8 maxtype;
 		struct nfs_ipaddr ip;
 		struct nfs_rule rule;
+		struct nfs_data d;
 	} data;
 	bool ret = true;
 	u8 s = 0;
 	int err = 0;
 	int cmdnum = 0;
-	if (_IOC_TYPE(cmd) != NFS_CMD_MAGIC) return -ENOTTY;
 	cmdnum = _IOC_NR(cmd);
-	pr_debug("NFS_CMD_NUM:[%d]\n", cmdnum);
+	pr_info("NFS_CMD_NUM:[%d], [%d]\n", cmdnum, cmd);
+	if (_IOC_TYPE(cmd) != NFS_CMD_MAGIC) {
+		pr_err("magic wrong \n");
+		return -ENOTTY;
+	}
+
 	if (_IOC_DIR(cmd) & _IOC_READ)
 		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
 		err =  !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
-	if (err) return -EFAULT;
+	if (err){
+		pr_err("access error:NFS_CMD_NUM:[%d]\n", cmdnum);
+ 		return -EFAULT;
+	}
 
 	if (cmd != NFS_CMD_INIT) {
 		if (nfstypesize() == 0) {
@@ -269,31 +277,30 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					sizeof(struct nfs_rule))) 
 			return -EFAULT;
 		ret = rmvnfsrule(&data.rule);
-
 		break;
 	case NFS_CMD_GETCOUNTER:
+		if (copy_from_user(&data.d, (u8 *)arg,
+					sizeof(struct nfs_data))) 
+			return -EFAULT;
+		ret = nfs_getcounter_perip(&data.d.ip, (u8 *)arg, data.d.len);
+		break;
+	case NFS_CMD_GETTYPEMAX:
 		s = nfstypesize();
 		if (copy_to_user((u8 *)arg,  &s, sizeof(s))) return -EFAULT;
+		pr_err("get type max\n");
+		ret = true;
 		break;
 	default:
+
+		pr_err("handle error:NFS_CMD_NUM:[%d]\n", cmdnum);
 		return -EFAULT;
 	}
 	if (ret) return 0;
+
+	pr_err("handle error:NFS_CMD_NUM:[%d]\n", cmdnum);
 	return -EIO;
 }
-ssize_t nfs_read(struct file *filep, char __user *data, size_t len, loff_t *f_ops)
-{
-	char *buf = vmalloc(len);
-	int ret = -1;
-	int s =  readcounter(buf, len);
-	if(s > 0){
-		ret = copy_to_user(data, buf, len);
-	}
-	if (ret != 0)  s = -1;
-	vfree(buf);
-	return s;
 
-}
 
 static struct nf_hook_ops  hooks[6] = {
 
@@ -344,7 +351,6 @@ static struct nf_hook_ops  hooks[6] = {
 };
 static struct file_operations nfsops = {
 	.owner = THIS_MODULE,
-	.read = nfs_read,
 	.unlocked_ioctl = nfs_ioctl,
 };
 
@@ -359,7 +365,9 @@ static void nfs_hook_clean(void)
 	cdev_del(&nfsdev.dev);
 	nf_unregister_hooks(hooks, sizeof(hooks)/sizeof(struct nf_hook_ops));
 	unregister_chrdev_region(nfsdev.devno, 1);
+	pr_debug("iptree clean\n");
 	clear_iptree();
+	pr_debug("rule clean\n");
 	clear_nfsrule();
 
 	/* parent dir must be delted as the last step */

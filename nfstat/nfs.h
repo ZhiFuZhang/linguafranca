@@ -22,6 +22,17 @@ struct nfs_ipaddr {
 	__u8 addr[16]; /*the max len of ip is 16*/
 } __attribute__((aligned(sizeof(int))));
 
+struct nfs_data {
+	size_t len;
+	struct nfs_ipaddr ip;
+};
+
+struct nfs_counter_vector {
+	__u64 number;
+	__u64 bytes;
+
+} __attribute__((aligned(sizeof(__u64))));
+
 
 static inline const char *nfs_port2str(__u8 port, char *buf)
 {
@@ -106,21 +117,24 @@ struct nfs_rule {
 	__u8 padding;
 } __attribute__((aligned(sizeof(long))));
 
-#define  NFS_CMD_MAGIC 'n'
+#define  NFS_CMD_MAGIC 'f'
 
-enum {
-NFS_CMD_INIT_NUM = 0,
-#define  NFS_CMD_INIT  _IOW(NFS_CMD_MAGIC, NFS_CMD_INIT_NUM, __u8)
-NFS_CMD_ADDIP_NUM,
-#define  NFS_CMD_ADDIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDIP_NUM, struct nfs_ipaddr) 
-NFS_CMD_RMVIP_NUM,
-#define  NFS_CMD_RMVIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_RMVIP_NUM, struct nfs_ipaddr)
-NFS_CMD_ADDRULE_NUM,
-#define  NFS_CMD_ADDRULE  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDRULE_NUM, struct nfs_rule)
-NFS_CMD_RMVRULE_NUM,  /* 5 */
-#define  NFS_CMD_RMVRULE  _IOW(NFS_CMD_MAGIC, NFS_CMD_RMVRULE_NUM, struct nfs_rule)
-NFS_CMD_GETCOUNTER_NUM,
-#define  NFS_CMD_GETCOUNTER  _IOR(NFS_CMD_MAGIC, NFS_CMD_GETCOUNTER_NUM, __u8)
+enum NFS_CMD{
+NFS_CMD_INIT = 0,
+#define  NFS_CMD_INIT  _IOW(NFS_CMD_MAGIC, NFS_CMD_INIT, __u8)
+NFS_CMD_ADDIP,
+#define  NFS_CMD_ADDIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDIP, struct nfs_ipaddr) 
+NFS_CMD_RMVIP,
+#define  NFS_CMD_RMVIP  _IOW(NFS_CMD_MAGIC, NFS_CMD_RMVIP, struct nfs_ipaddr)
+NFS_CMD_ADDRULE,
+#define  NFS_CMD_ADDRULE  _IOW(NFS_CMD_MAGIC, NFS_CMD_ADDRULE, struct nfs_rule)
+NFS_CMD_RMVRULE,  /* 4 */
+#define  NFS_CMD_RMVRULE  _IOW(NFS_CMD_MAGIC, NFS_CMD_RMVRULE, struct nfs_rule)
+NFS_CMD_GETCOUNTER,
+#define  NFS_CMD_GETCOUNTER  _IOWR(NFS_CMD_MAGIC, NFS_CMD_GETCOUNTER, struct nfs_data) 
+NFS_CMD_GETTYPEMAX,
+#define NFS_CMD_GETTYPEMAX  _IOR(NFS_CMD_MAGIC, NFS_CMD_GETTYPEMAX, __u8)
+
 NFS_CMD_MAX
 };
 #define NFS_DEV_NAME "nf-stat"

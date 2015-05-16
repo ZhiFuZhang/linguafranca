@@ -11,7 +11,9 @@
  *
  */
 #include <linux/in.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "nfs_api.h"
 int main()
@@ -38,15 +40,21 @@ int main()
 		}	
 	
 	}; 
-
+	char *buf = NULL;
 	if (fd < 0) {
 		printf("open nfs failed, (%d)\n", fd);
+		return -1;
 	}
+	printf("the current type num is [%d]\n", nfs_get_type_num(fd));
 	ret = nfs_set_type_num(fd, 4);
+	printf("nfs set num %d\n", ret);
 	if (ret == 0) {
 		printf("nfs_init failed, %d", ret);	
-		//return -1;
+		return -1;
 	}
+	size_t len = ret *  sizeof(struct nfs_counter_vector);
+	buf = malloc(len);
+	memset(buf, 0xec, len);
 	nfs_addip(fd, &ip);
 
 	struct nfs_rule rule = {
@@ -110,8 +118,17 @@ int main()
 	nfs_addrule(fd, &rule4);
 	nfs_addrule(fd, &rule2);
 	nfs_addip(fd, &ip2);
-	sleep(60);
+
+	sleep(10);
+	nfs_getcounter(fd, &ip, buf, len);
+	size_t i = 0;
+	struct nfs_counter_vector *vp = (struct nfs_counter_vector *)buf;
+	for (i = 0; i < len/sizeof(struct nfs_counter_vector); i++) {
+		printf("(%ld)pkts:%llu, bytes:%llu\n",i, vp[i].number, vp[i].bytes);
+	}
 	nfs_delrule(fd, &rule);
+
+	sleep(10);
 	ret = nfs_delip(fd, &ip);
 	printf("delip [%d]\n", ret);
 	return 0;

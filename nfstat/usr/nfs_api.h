@@ -22,9 +22,11 @@ int nfs_open(void);
 /* return the maxtypenum */
 
 int nfs_set_type_num(int fd, __u8 maxtypenum);
+__u8 nfs_get_type_num(int fd);
 int nfs_addip(int fd, const struct nfs_ipaddr *ip);
 int nfs_delip(int fd, const struct nfs_ipaddr *ip);
 int nfs_addrule(int fd, const struct nfs_rule *rule);
 int nfs_delrule(int fd, const struct nfs_rule *rule);
+int nfs_getcounter(int fd, const struct nfs_ipaddr *ip, char *data, size_t len);
 
 #endif

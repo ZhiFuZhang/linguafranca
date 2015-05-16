@@ -10,21 +10,16 @@
  *
  *
  */
-
 #include <linux/kernel.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/rbtree.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
 
 
 #include "internal.h"
-
-struct nfs_counter_vector {
-	u64 number;
-	u64 bytes;
-};
 #define NAME_SIZE 16
 struct ip_counter_entry {
 	struct rb_node node;
@@ -256,61 +251,67 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 		pr_debug("debug.no ip counter entry\n");
 		return;
 	}
-	local_bh_disable();
+
+	//local_bh_disable();
 	vector = get_cpu_ptr(entry->counter);
 	vector[typeidx].number++;
 	vector[typeidx].bytes += bytes;
 	put_cpu_ptr(entry->counter);
-	local_bh_enable();
+	//local_bh_enable();
 	read_unlock_irqrestore(&iptreelock, flags);
 }
 
-#define copy_counter(buf, data, len)			\
-{							\
-	memcpy(buf, data, len);		\
-	buf = buf + len;				\
-}
 
 
-int readcounter(char  *buf, size_t len)
+bool
+nfs_getcounter_perip(const struct nfs_ipaddr *ip, char __user *buf, size_t len)
 {
 	struct ip_counter_entry *entry = NULL;
-	struct ip_counter_entry *node = NULL;
 	struct nfs_counter_vector *c = NULL;
 	u8 i = 0;
-	u64 number = 0;
-	u64 bytes = 0;
-	char *begin = buf;
+	struct nfs_counter_vector v;
 	int cpu = 0;
+	char *tmp = NULL;
 	unsigned long flags;
+	int ret = 0;
+	char *orig = NULL;
+	char name[NFS_IPSTR] = {0};
 
-	read_lock_irqsave(&iptreelock, flags);
-	if (len < ipnumber * (sizeof(struct nfs_ipaddr)
-			       	+ sizeof(u64) * 2 * maxtype)) {
-
-		read_unlock_irqrestore(&iptreelock, flags);
-		return -1;
-
+	if (len < (sizeof(struct nfs_counter_vector) * maxtype)) {
+		pr_err("nfs_getcounter_perip, buffer is not big enough\n");
+		return false;
 	}
-
-	
-	nfs_rbtree_postorder_for_each_entry_safe(entry, node, &iptree, node) {
-		copy_counter(buf, &entry->ip, sizeof(struct nfs_ipaddr));
-		for (i = 0; i < maxtype; i++) {
-			number = 0;
-			bytes = 0;
-			for_each_possible_cpu(cpu) {
-				c = per_cpu_ptr(entry->counter, cpu);
-				number += c[i].number;
-				bytes += c[i].bytes;
-			}
-			copy_counter(buf, &number, sizeof(u64));
-			copy_counter(buf, &bytes, sizeof(u64));
+	tmp = vmalloc(len);
+	orig = tmp;
+	memset(tmp, 0, len);
+	if (tmp == NULL) return false;
+	read_lock_irqsave(&iptreelock, flags);
+	entry = findipentry(ip);
+	if (entry == NULL) {
+		read_unlock_irqrestore(&iptreelock, flags);
+		vfree(tmp);
+		tmp = NULL;
+		pr_info("no such ip entry for [%s]\n",
+					nfs_ip2str(ip, name));
+		return false;
+	}
+	for (i = 0; i < maxtype; i++) {
+		v.number = 0;
+		v.bytes = 0;
+		for_each_possible_cpu(cpu) {
+			c = per_cpu_ptr(entry->counter, cpu);
+			v.number += c[i].number;
+			v.bytes += c[i].bytes;
 		}
+		memcpy(tmp, &v, sizeof(v));
+		tmp  += sizeof(v);
 	}
 	read_unlock_irqrestore(&iptreelock, flags);
-	return buf - begin;
+	ret = copy_to_user(buf, orig, len);
+	vfree(orig);
+	return (ret == 0);
 }
+
 
 void clear_iptree(void)
 {
