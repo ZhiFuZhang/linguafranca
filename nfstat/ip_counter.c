@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
+#include <linux/preempt_mask.h>
 #include <linux/rbtree.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
@@ -240,6 +241,7 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	struct nfs_counter_vector *vector = NULL;
 	unsigned long flags;
 	char name[NFS_IPSTR] = {0};
+	bool in_softirq = in_softirq();
 	pr_debug("debug.add ipcounter for [%s]\n",
 				nfs_ip2str(ip, name));
 
@@ -251,13 +253,21 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 		pr_debug("debug.no ip counter entry\n");
 		return;
 	}
-
-	//local_bh_disable();
+	/* Not sure whehter soft irq will prement the process context(kernel space.
+	 * For netfilter hook(send from Host to Netowkr), it may be in process context
+	 * and it also may be in interrupt context(soft irq).
+	 */
+	if (!in_softirq) {
+		local_bh_disable();
+	}
 	vector = get_cpu_ptr(entry->counter);
 	vector[typeidx].number++;
 	vector[typeidx].bytes += bytes;
 	put_cpu_ptr(entry->counter);
-	//local_bh_enable();
+	if (!in_softirq) {
+		local_bh_enable();
+	}
+
 	read_unlock_irqrestore(&iptreelock, flags);
 }
 

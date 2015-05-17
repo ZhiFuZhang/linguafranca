@@ -16,6 +16,8 @@
 #include <string.h>
 #include <unistd.h>
 #include "nfs_api.h"
+
+/* simple dmo for using the api */
 int main()
 {
 	int fd = nfs_open();
@@ -119,17 +121,31 @@ int main()
 	nfs_addrule(fd, &rule2);
 	nfs_addip(fd, &ip2);
 
-	sleep(10);
-	nfs_getcounter(fd, &ip, buf, len);
 	size_t i = 0;
-	struct nfs_counter_vector *vp = (struct nfs_counter_vector *)buf;
-	for (i = 0; i < len/sizeof(struct nfs_counter_vector); i++) {
-		printf("(%ld)pkts:%llu, bytes:%llu\n",i, vp[i].number, vp[i].bytes);
+	for (i = 0; i < 200; i++) {
+		rule4.rport += 1;
+		nfs_addrule(fd, &rule4);
+		rule3.rport += 1;
+		nfs_addrule(fd, &rule3);
+		ip2.addr[1] += 1;
+		nfs_addip(fd, &ip2);
 	}
-	nfs_delrule(fd, &rule);
+	for (i = 0; i <200; i++) {
+		sleep(10);
+		nfs_getcounter(fd, &ip, buf, len);
+		struct nfs_counter_vector *vp = (struct nfs_counter_vector *)buf;
+		for (i = 0; i < len/sizeof(struct nfs_counter_vector); i++) {
+			printf("(%ld)pkts:%llu, bytes:%llu\n",i, vp[i].number, vp[i].bytes);
+		}
+	}
 
 	sleep(10);
+
+	nfs_delrule(fd, &rule);
 	ret = nfs_delip(fd, &ip);
 	printf("delip [%d]\n", ret);
+
+	free(buf);
+	close(fd);
 	return 0;
 }

@@ -219,7 +219,7 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int err = 0;
 	int cmdnum = 0;
 	cmdnum = _IOC_NR(cmd);
-	pr_info("NFS_CMD_NUM:[%d], [%d]\n", cmdnum, cmd);
+	pr_debug("NFS_CMD_NUM:[%d], [%d]\n", cmdnum, cmd);
 	if (_IOC_TYPE(cmd) != NFS_CMD_MAGIC) {
 		pr_err("magic wrong \n");
 		return -ENOTTY;
@@ -287,7 +287,6 @@ long nfs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case NFS_CMD_GETTYPEMAX:
 		s = nfstypesize();
 		if (copy_to_user((u8 *)arg,  &s, sizeof(s))) return -EFAULT;
-		pr_err("get type max\n");
 		ret = true;
 		break;
 	default:
