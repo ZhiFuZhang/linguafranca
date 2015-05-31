@@ -26,7 +26,7 @@ static int __init ips_ut_init(void)
 {
 	
 	pr_info(IPS"ips_ut_init\n");
-	devset_ut();
+	runtestsuite(devset_ut);
 	return 0;
 }
 
