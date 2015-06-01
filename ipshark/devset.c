@@ -93,8 +93,11 @@ bool devset_ignore(const char *devname)
 	u32 hash = dev_hash(devname);
 	struct hlist_head *head = dev_hashhead(hash);
 	if (get_entry_in_hlist(devname, hash, head)) {
+		pr_debug(IPS"dev in the list\n");
 		return (white_black == IPS_BLACK);
 	}  else {
+
+		pr_debug(IPS"dev not in the list\n");
 		return (white_black == IPS_WHITE);
 	}
 }
@@ -112,7 +115,9 @@ void devset_exit(void)
 		}
 		INIT_HLIST_HEAD(&hash[i]);
 	}
-	kfree(dev_hashtable);
+	kfree(hash);
+	dev_hashtable = NULL;
+	white_black = IPS_NONE;
 }
 
 #ifdef  UNITTEST
@@ -149,6 +154,7 @@ static int __rainy devset_add_test4(void) {
 	l.white_black = IPS_WHITE;
 	white_black = IPS_BLACK;
 	s = devset_add(&l);
+	white_black = IPS_NONE;
 	if (s == -EEXIST) return 0;
 	return 1;
 
@@ -163,13 +169,28 @@ static int __sunny devset_add_test5(void) {
 	l.devnum = 1;
 	l.white_black = IPS_WHITE;
 	s = devset_add(&l);
+	if (s != 0) return 1;
 	if (!devset_ignore(n.name)) return 0;
+	return 1;
+}
+static int __sunny devset_add_test6(void) {
+	int s = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"eth295"},
+	};
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	s = devset_add(&l);
+	if (s != 0) return 1;
+	if (devset_ignore(n.name)) return 0;
 	return 1;
 }
 struct ut_result devset_ut()
 {
 	int s = 0;
-	struct ut_result r = {0};
+	struct ut_result r = {0xffff,0xffff};
 	pr_info(IPS"devset_ut started\n");
 	s = devset_init();
 	if (s != 0) return r;
@@ -178,6 +199,12 @@ struct ut_result devset_ut()
 	runtest(r, devset_add_test3);
 	runtest(r, devset_add_test4);
 	runtest(r, devset_add_test5);
+
+	devset_exit();
+	s = devset_init();
+	if (s != 0) return r;
+	runtest(r, devset_add_test6);
+
 
 	devset_exit();
 	pr_info(IPS"devset_ut completed\n");

@@ -30,7 +30,9 @@ bool devset_ignore(const char *devname);
 		r.fail++;	  \
 		pr_info(IPS"testcase:%s failed, fail/total %d/%d\n", \
 		   #fun, r.fail, r.total);\
-	}			  \
+	} else	{		  \
+		pr_debug(IPS"testcase:%s passed \n", #fun); \
+	}			 \
 }
 struct ut_result{
 	int total;
@@ -47,7 +49,7 @@ struct ut_result{
 /* return faile test case num */
 struct ut_result devset_ut(void);
 #else
-#define devset_ut 0
+#define devset_ut {0, 0}
 #endif
 
 #endif
