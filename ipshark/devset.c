@@ -37,6 +37,7 @@ static struct hlist_head *dev_hashhead(u32 h)
 	h =  small_jhash(h);
 	return &dev_hashtable[h];
 }
+
 static struct dev_entry *get_entry_in_hlist(const char * name, u32 hash,
 	       	struct hlist_head *head)
 {
@@ -58,6 +59,11 @@ int devset_add(const struct devname_list *l)
 	struct dev_entry *newnode = NULL;
 	char *name = NULL;
 	u32 hash = 0;
+
+	if (unlikely(dev_hashtable == NULL)){
+		pr_err(IPS"devset is not initailed yet\n");       
+		return -ENOMEM;
+	}
 	if (unlikely(white_black != IPS_NONE)) return -EEXIST;
 	if (unlikely(l == NULL)) return -EFAULT;
 	if (unlikely(l->namelist == NULL)) return -EFAULT;
@@ -177,7 +183,7 @@ static int __sunny devset_add_test6(void) {
 	int s = 0;
 	struct devname_list l = { 0 };
 	struct devname n = {
-		.name = {"eth295"},
+		.name = "eth295",
 	};
 	l.namelist = &n;
 	l.devnum = 1;
@@ -187,13 +193,59 @@ static int __sunny devset_add_test6(void) {
 	if (devset_ignore(n.name)) return 0;
 	return 1;
 }
+
+static int __sunny devset_add_test7(void) {
+	int s = 0;
+	struct devname_list l = { 0 };
+	struct devname n[] = {
+		[0] = {
+			.name = "eth295",
+		},
+		[1] = {
+			.name = "eth296",
+		},
+		[2] = {
+			.name = "eth285",
+		},
+		[3] = {
+			.name = "eth275",
+		},
+
+
+	};
+	l.namelist = &n[0];
+	l.devnum = sizeof(n)/sizeof(struct devname);
+	l.white_black = IPS_BLACK;
+	s = devset_add(&l);
+	if (s != 0) return 1;
+	if (devset_ignore(n[2].name)) return 0;
+	return 1;
+}
+
+static int __sunny devset_ignore_test8(void) {
+
+	if (devset_ignore("hello")) return 1;
+	return 0;
+}
+
+static int __sunny devset_ignore_test9(void) {
+	white_black = IPS_WHITE;
+	if (devset_ignore("hello")) return 0;
+	return 1;
+}
+static int __sunny devset_exit_test10(void) {
+	if (white_black == IPS_NONE && dev_hashtable == NULL) 
+		return 0;
+	return 1;
+}
 struct ut_result devset_ut()
 {
 	int s = 0;
-	struct ut_result r = {0xffff,0xffff};
+	struct ut_result r = {0,0};
+	struct ut_result crtical_fail = {0xffff, 0xffff};
 	pr_info(IPS"devset_ut started\n");
 	s = devset_init();
-	if (s != 0) return r;
+	if (s != 0) return crtical_fail;
 	runtest(r, devset_add_test1);
 	runtest(r, devset_add_test2);
 	runtest(r, devset_add_test3);
@@ -202,11 +254,18 @@ struct ut_result devset_ut()
 
 	devset_exit();
 	s = devset_init();
-	if (s != 0) return r;
+	if (s != 0) return crtical_fail;
 	runtest(r, devset_add_test6);
 
-
 	devset_exit();
+	s = devset_init();
+	if (s != 0) return crtical_fail;
+	runtest(r, devset_add_test7);
+	runtest(r, devset_ignore_test8);
+	runtest(r, devset_ignore_test9);
+	
+	devset_exit();
+	runtest(r, devset_exit_test10);
 	pr_info(IPS"devset_ut completed\n");
 	return r;
 }

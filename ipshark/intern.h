@@ -42,7 +42,7 @@ struct ut_result{
 #define runtestsuite(fun)			\
 {						\
 	struct ut_result __r_ut = fun();	\
-	pr_info(IPS"testsuite:%s failed, fail/total %d/%d\n", \
+	pr_info(IPS"testsuite:%s test result, fail/total %d/%d\n", \
 			#fun, __r_ut.fail, __r_ut.total);	\
 }
 
