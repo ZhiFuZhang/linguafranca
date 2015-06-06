@@ -1,3 +1,6 @@
+#
+#	the code is compiled with linux kernel 3.10
+#
 ifneq ($(KERNELRELEASE),)
 	obj-m :=nfstat.o
 	nfstat-objs := nfs_hook.o ip_counter.o  ip_rule.o
