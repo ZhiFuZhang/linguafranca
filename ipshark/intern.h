@@ -9,7 +9,10 @@ struct dev_entry{
 	u32 hash;
 	struct hlist_node node;
 };
-
+struct ip_key_info_set{
+	size_t n;
+	struct ip_key_info *array;
+};
 int devset_init(void);
 void devset_exit(void);
 int devset_add(const struct devname_list __kernel *l);
@@ -48,6 +51,7 @@ struct ut_result{
 
 /* return faile test case num */
 struct ut_result devset_ut(void);
+struct ut_result ip_queue_ut(void);
 #else
 #define devset_ut {0, 0}
 #endif

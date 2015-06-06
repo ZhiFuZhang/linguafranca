@@ -16,4 +16,24 @@ struct devname_list{
 	struct devname *namelist;
 };
 
+struct ip_key_info{
+	struct devname in;
+	struct devname out;
+	/* C11 ISO, unamed field */
+	union{	
+		char s4[4];
+		char s6[16];
+	};
+	union {
+		char d4[4];
+		char d6[16];
+	};
+	__u8 version:4,
+	     direct:4;
+	__u8 protocal;
+	__u8 sport;
+	__u8 dport;
+	__u16 totallen;
+};
+
 #endif
