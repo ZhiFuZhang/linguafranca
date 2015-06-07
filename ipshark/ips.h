@@ -31,8 +31,8 @@ struct ip_key_info{
 	__u8 version:4,
 	     direct:4;
 	__u8 protocal;
-	__u8 sport;
-	__u8 dport;
+	__u16 sport;
+	__u16 dport;
 	__u16 totallen;
 };
 

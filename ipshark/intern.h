@@ -11,12 +11,22 @@ struct dev_entry{
 };
 struct ip_key_info_set{
 	size_t n;
-	struct ip_key_info *array;
+	union {
+		struct ip_key_info *array;
+		char *buf;
+	};
 };
 int devset_init(void);
 void devset_exit(void);
 int devset_add(const struct devname_list __kernel *l);
 bool devset_ignore(const char *devname);
+
+int ip_queue_init(void);
+int ip_queue_put(const struct ip_key_info *info);
+void ip_queue_wake_up(void);
+long ip_queue_wait(void);
+void ip_queue_get(struct ip_key_info_set *s);
+void ip_queue_exit(void);
 
 #ifdef  UNITTEST
 #undef IPS
