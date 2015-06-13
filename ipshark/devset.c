@@ -98,6 +98,7 @@ bool devset_ignore(const char *devname)
 {
 	u32 hash = dev_hash(devname);
 	struct hlist_head *head = dev_hashhead(hash);
+	if (white_black == IPS_NONE) return true;
 	if (get_entry_in_hlist(devname, hash, head)) {
 		pr_debug(IPS"dev in the list\n");
 		return (white_black == IPS_BLACK);
@@ -108,6 +109,39 @@ bool devset_ignore(const char *devname)
 	}
 }
 
+int devset_show(struct seq_file *m)
+{
+	const char *s = NULL;
+	struct dev_entry *pos = NULL;
+	struct hlist_node *n = NULL;
+	struct hlist_head *hash = dev_hashtable;
+	int i = 0;
+	char str[sizeof(pos->n) + 1] = "";
+
+	switch(white_black){
+	case IPS_WHITE:
+		s = "White Device Nmae List:\n";
+		break;
+	case IPS_BLACK:
+		s = "Black Device Name List:\n";
+		break;
+	default:
+		seq_puts(m, "Not initialed yet.\n");
+		return 0;
+	}
+	seq_puts(m, s);
+	for (i = 0; i < DEVNAME_HASH_SIZE; i++)	{
+		hlist_for_each_entry_safe(pos, n, &hash[i], node) {
+			memcpy(str, pos->n.name, sizeof(pos->n));
+			str[sizeof(pos->n)] = 0;
+			seq_puts(m, str);
+			seq_putc(m, ' ');
+		}
+	}
+	seq_putc(m, '\n');
+	return 0;
+
+}
 void devset_exit(void)
 {
 	struct dev_entry *pos = NULL;
@@ -208,7 +242,7 @@ static int __sunny devset_add_test7(void) {
 			.name = "eth285",
 		},
 		[3] = {
-			.name = "eth275",
+			.name = "eth275_12345678",
 		},
 
 

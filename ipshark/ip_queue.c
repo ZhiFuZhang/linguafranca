@@ -76,7 +76,7 @@ static bool ip_queue_empty(void)
 }
 long ip_queue_wait(void) 
 {
-	return wait_event_interruptible_timeout(wq, !ip_queue_empty(), HZ); 
+	return wait_event_interruptible_timeout(wq, !ip_queue_empty(), HZ/50); 
 }
 void ip_queue_get(struct ip_key_info_set *s)
 {
@@ -152,7 +152,7 @@ static int __sunny ip_queue_get_put_test2(void){
 		.d4 = {232,198,6.72},
 		.version = 4,
 		.direct = 2,
-		.protocal = 23,
+		.protocol = 23,
 		.sport = 1293,
 		.dport = 65535,
 		.totallen = 3545
@@ -181,7 +181,7 @@ static int __sunny ip_queue_get_put_test3(void){
 		.d4 = {232,198,6.72},
 		.version = 4,
 		.direct = 2,
-		.protocal = 23,
+		.protocol = 23,
 		.sport = 1293,
 		.dport = 65535,
 		.totallen = 3545
@@ -223,7 +223,7 @@ static int __sunny ip_queue_get_put_test4(void){
 		.d4 = {232,198,6.72},
 		.version = 4,
 		.direct = 2,
-		.protocal = 23,
+		.protocol = 23,
 		.sport = 1293,
 		.dport = 65535,
 		.totallen = 3545

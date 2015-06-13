@@ -23,17 +23,47 @@ struct ip_key_info{
 	union{	
 		char s4[4];
 		char s6[16];
+		char s[16];
 	};
 	union {
 		char d4[4];
 		char d6[16];
+		char d[16];
 	};
+
+#define IPS_IN	1
+#define IPS_OUT	2
+#define IPS_FORWARD	3
 	__u8 version:4,
 	     direct:4;
-	__u8 protocal;
+	__u8 protocol;
 	__u16 sport;
 	__u16 dport;
 	__u16 totallen;
+};
+
+struct ip_key_info_set{
+	size_t n;
+	union {
+		struct ip_key_info *array;
+		char *buf;
+	};
+};
+
+
+#define IPS_DEV_NAME "ips"
+#define IPS_DEV_FILE "/dev/"IPS_DEV_NAME
+#define IPS_DEV_PROC "/proc/driver/ips"
+
+#define IPS_CMD_MAGIC 'i'
+
+
+enum IPS_CMD {
+	IPS_SET_NAMELIST = 0,
+#define  IPS_SET_NAMELIST _IOW(IPS_CMD_MAGIC, IPS_SET_NAMELIST, struct devname_list)
+	IPS_FETCH_INFO,
+#define IPS_FETCH_INFO _IOR(IPS_CMD_MAGIC, IPS_FETCH_INFO, struct devname_list)
+
 };
 
 #endif
