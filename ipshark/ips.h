@@ -1,12 +1,12 @@
 #ifndef __IPS_H__HEAD
 #define __IPS_H__HEAD
-#include <linux/inetdevice.h>
+#include <linux/types.h>
 enum {
 	IPS_WHITE = 0,
 	IPS_BLACK,
 	IPS_NONE
 };
-
+#define IFNAMSIZ 16
 struct devname{
 	char name[IFNAMSIZ];
 };
@@ -43,7 +43,7 @@ struct ip_key_info{
 };
 
 struct ip_key_info_set{
-	size_t n;
+	__u32 n;
 	union {
 		struct ip_key_info *array;
 		char *buf;
@@ -51,9 +51,9 @@ struct ip_key_info_set{
 };
 
 
-#define IPS_DEV_NAME "ips"
+#define IPS_DEV_NAME "ipshark"
 #define IPS_DEV_FILE "/dev/"IPS_DEV_NAME
-#define IPS_DEV_PROC "/proc/driver/ips"
+#define IPS_DEV_PROC "/proc/driver/ipshark"
 
 #define IPS_CMD_MAGIC 'i'
 

@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
+#include <linux/uaccess.h>
 #include "intern.h"
 
 static DEFINE_SEMAPHORE(ips_sem);
@@ -15,9 +16,9 @@ static enum {
 static int cas(int expected, int new)
 {
 	int err = 0;
-	down_interruptible(&ips_sem);
-	if (dev_state){
-		dev_state = OPEN;
+	down(&ips_sem);
+	if (dev_state == expected){
+		dev_state = new;
 	}
 	else {
 		err = -EINVAL;
@@ -28,7 +29,7 @@ static int cas(int expected, int new)
 
 static void set(int new) 
 {
-	down_interruptible(&ips_sem);
+	down(&ips_sem);
 	dev_state = new;
 	up(&ips_sem);
 }
@@ -36,8 +37,9 @@ static void set(int new)
 static int ips_open(struct inode *node, struct file *filep)
 {
 	int err = 0;
+	pr_info(IPS"open\n");
 	err = cas(CLOSE, OPEN);
-	if (err) return err;
+	if (err) goto fail;
 	err = devset_init();
 	if (err) goto fail;
 	err = ip_queue_init();
@@ -47,6 +49,7 @@ static int ips_open(struct inode *node, struct file *filep)
 ip_queue_fail:
 	devset_exit();
 fail:
+	pr_err(IPS"open failed %d\n", err);
 	return err;
 }
 static int ips_release(struct inode *node, struct file *filep)
@@ -55,20 +58,106 @@ static int ips_release(struct inode *node, struct file *filep)
 	hook_unregister();
 	(void)ip_queue_exit();
 	(void)devset_exit();
+	pr_info(IPS"release\n");
 	return 0;
 }
+
+static int set_namelist(void *v)
+{
+	struct devname *d = NULL;
+	struct devname_list l;
+	int err = cas(OPEN, NAME_SET);
+	if (err){
+		pr_err(IPS"state is wrong, %d\n", err);
+	       	return err;
+	}
+	err= copy_from_user(&l, v, sizeof(struct devname_list));
+	if (err) goto fail;
+	d = l.namelist;
+	if (unlikely(l.devnum <= 0)){
+		err = -EINVAL;
+		goto fail;
+	}		
+	err = !access_ok(VERIFY_READ, (void __user *)d,
+				l.devnum * sizeof( struct devname));
+	if (err) goto fail;
+	l.namelist = vmalloc(l.devnum * sizeof(struct devname));
+	if (l.namelist == NULL) {
+		err = -EFAULT;	
+		goto fail;
+	}
+	err = copy_from_user(l.namelist, d, l.devnum * sizeof(struct devname));
+	if (err) goto failfree;
+	err = devset_add(&l);
+	if (err) goto failfree;
+
+	vfree(l.namelist);
+	return 0;
+
+failfree:
+	vfree(l.namelist);
+fail:
+	set(OPEN);
+	return err;
+}
+static int fetch_info(void * v)
+{
+
+	struct ip_key_info_set s;
+	char *buf = NULL;
+	char *bufnew = NULL;
+	int err = cas(NAME_SET, RUN);
+	if (err){
+		pr_err(IPS"state is wrong, %d\n", err);
+	       	return err;
+	}
+	err= copy_from_user(&s, v, sizeof(s));
+	if (err) goto fail; 
+	if (s.buf == NULL || s.n <= 0) {
+		err =  -EINVAL;
+		goto fail;
+	}
+	err = ip_queue_wait();
+	if (err) {
+		pr_debug(IPS"wait timeout %d\n", err);
+		err = -ETIME;
+		s.n = 0;
+		if (copy_to_user(v, &s, sizeof(s))){
+			pr_err(IPS"copy to user failed");
+		}
+		goto fail;
+	}
+	buf = s.buf;
+	err = !access_ok(VERIFY_WRITE, (void __user *)buf,
+				s.n * sizeof(struct ip_key_info));
+	if (!err) goto fail;
+	s.buf = vmalloc(s.n * sizeof(struct ip_key_info));
+	bufnew = s.buf;
+	if (s.buf == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+	ip_queue_get(&s);
+	err = copy_to_user(buf, s.buf,
+			s.n * sizeof(struct ip_key_info));
+	if (err) goto failfree;
+	s.buf = buf;
+	err = copy_to_user(v, &s, sizeof(s));
+failfree:
+	vfree(bufnew);
+fail:
+	set(NAME_SET);
+	pr_debug(IPS"ips fetch errno [%d]\n", err);
+	return err;
+}
+
 static long ips_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	union {
-		struct devname_list l;
-		struct ip_key_info_set s;
-	} data;
-	struct devname *d = NULL;
 	int cmdnum = 0;
 	int err = 0;
 	cmdnum = _IOC_NR(cmd);
 	pr_debug(IPS"cmd [%d], [%d]\n", cmdnum, cmd);
-
+/* cmd check, begin */
 	if (unlikely(_IOC_TYPE(cmd) != IPS_CMD_MAGIC)) {
 		pr_err("magic wrong \n");
 		return -EIO;
@@ -81,22 +170,21 @@ static long ips_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_err("access error:NFS_CMD_NUM:[%d]\n", cmdnum);
  		return -EFAULT;
 	}
+/* cmd check, end */
+
 	switch (cmd) {
 	case IPS_SET_NAMELIST:
-		err = cas(OPEN, NAME_SET);
-		if (err) return err;
-		copy_from_user(&data.l, arg, sizeof(struct devname_list));
-		d = data.l.namelist;
-		err = !access_ok(VERIFY_READ, (void __user *)d,
-				data.l.devnum * sizeof( struct devname));
+		err = set_namelist((void*)arg);
 		break;
 	case IPS_FETCH_INFO:
+		err =fetch_info((void*)arg);
 		break;
 	default:
 		pr_err("handle error:IPS_CMD_NUM:[%d]\n", cmdnum);
 		return -EFAULT;
 	}
-	return 0;
+	pr_debug(IPS"ioctl errno[%d]\n", err);
+	return err;
 }
 
 static int proc_show(struct seq_file *m, void *v)
@@ -128,7 +216,7 @@ static dev_t devno;
 static void ips_clean(void)
 {
 
-	remove_proc_entry(IPS_DEV_PROC, NULL);
+	//remove_proc_entry(IPS_DEV_PROC, NULL);
 	cdev_del(&dev);
 	unregister_chrdev_region(devno, 1);
 }
@@ -161,12 +249,13 @@ static int __init ips_init(void)
 		pr_err(IPS"cdev_add failed, %d\n", err);
 		return err;
 	}
+#if 0
 	if (unlikely(!proc_create_data(IPS_DEV_PROC,
 					0444, NULL, &proc_ops, NULL))) {
 		pr_err(IPS"could not create proc %s\n", IPS_DEV_PROC);
 		goto fail;
 	}
-
+#endif
 	return 0;
 fail:
 	ips_clean();

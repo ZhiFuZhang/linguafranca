@@ -1,6 +1,6 @@
 #ifndef __INTERN_H__HEAD
 #define __INTERN_H__HEAD
-
+#include <linux/slab.h>
 #include <linux/seq_file.h>
 #include "ips.h"
 #define IPS "ipshark:"

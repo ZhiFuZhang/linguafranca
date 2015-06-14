@@ -1,5 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/kfifo.h>
+#include <linux/netdevice.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/preempt_mask.h>
@@ -57,7 +58,13 @@ int ip_queue_put(const struct ip_key_info *info)
 }
 void ip_queue_wake_up(void)
 {
-	wake_up_interruptible(&wq);
+	static int num = 0;
+	num++;
+
+	if (num > 32) {
+		num = 0;
+		wake_up_interruptible(&wq);
+	}
 }
 static bool ip_queue_empty(void) 
 {
@@ -256,7 +263,7 @@ static int __sunny ip_queue_get_put_test4(void){
 
 	ip_queue_get(&s);
 
-	pr_debug(IPS"ip_queue_get all, [%lu] \n", s.n);
+	pr_debug(IPS"ip_queue_get all, [%lu] \n", (long unsigned int)s.n);
 	if (s.n != 1024) return 1;
 	if (memcmp(&info, s.array, sizeof(info)) != 0) return 1;
 	return 0;
