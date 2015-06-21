@@ -22,6 +22,7 @@ void ip_queue_wake_up(void);
 long ip_queue_wait(void);
 void ip_queue_get(struct ip_key_info_set *s);
 void ip_queue_exit(void);
+int ip_queue_show(struct seq_file *m);
 
 
 void hook_register(void);

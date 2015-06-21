@@ -8,13 +8,15 @@
 static int fd = -1;
 int ips_init(void)
 {
+	int nfd = 0;
 	if (fd >= 0) {
 		return -EEXIST;
 	}
-	fd = open(IPS_DEV_FILE, O_RDONLY);
-	if (fd < 0) {
+	nfd = open(IPS_DEV_FILE, O_RDONLY);
+	if (nfd < 0) {
 		return -ENOENT;
 	}
+	fd = nfd;
 	return 0;
 }
 
@@ -38,6 +40,8 @@ int ips_config(struct devname_list *l)
 	if (fd < 0) {
 		return -ENXIO;
 	}
+	if (l->devnum <= 0) return -EINVAL;
+
 	return ioctl(fd, IPS_SET_NAMELIST,(long)l);
 }
 

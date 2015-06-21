@@ -28,7 +28,9 @@ int devset_init(void)
 }
 static u32 dev_hash(const char *devname)
 {
-	u32 h = jhash(devname, IFNAMSIZ, DEV_NAME_HASH_INITVAL);
+
+	u32 h = jhash(devname, strlen(devname), DEV_NAME_HASH_INITVAL);
+	pr_debug(IPS"hash %d\n", h);
 	return h;
 }
 /* devname must have a space whose size is IFNAMSIZ*/
@@ -100,11 +102,11 @@ bool devset_ignore(const char *devname)
 	struct hlist_head *head = dev_hashhead(hash);
 	if (white_black == IPS_NONE) return true;
 	if (get_entry_in_hlist(devname, hash, head)) {
-		pr_debug(IPS"dev in the list\n");
+		pr_debug(IPS"dev in the list [%s]\n", devname);
 		return (white_black == IPS_BLACK);
 	}  else {
 
-		pr_debug(IPS"dev not in the list\n");
+		pr_debug(IPS"dev not in the list[%s]\n", devname);
 		return (white_black == IPS_WHITE);
 	}
 }

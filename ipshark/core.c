@@ -117,6 +117,7 @@ static int fetch_info(void * v)
 		err =  -EINVAL;
 		goto fail;
 	}
+
 	err = ip_queue_wait();
 	if (err) {
 		pr_debug(IPS"wait timeout %d\n", err);
@@ -130,7 +131,9 @@ static int fetch_info(void * v)
 	buf = s.buf;
 	err = !access_ok(VERIFY_WRITE, (void __user *)buf,
 				s.n * sizeof(struct ip_key_info));
-	if (!err) goto fail;
+
+	if (err) goto fail;
+
 	s.buf = vmalloc(s.n * sizeof(struct ip_key_info));
 	bufnew = s.buf;
 	if (s.buf == NULL) {
@@ -147,7 +150,7 @@ failfree:
 	vfree(bufnew);
 fail:
 	set(NAME_SET);
-	pr_debug(IPS"ips fetch errno [%d]\n", err);
+	if (err) pr_debug(IPS"ips fetch errno [%d]\n", err);
 	return err;
 }
 
@@ -189,7 +192,9 @@ static long ips_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static int proc_show(struct seq_file *m, void *v)
 {
-	return devset_show(m);
+	int ret = devset_show(m);
+	if (ret == 0) ip_queue_show(m);
+	return ret;
 }
 
 static int proc_single_open(struct inode *inode, struct file *file)
@@ -216,7 +221,7 @@ static dev_t devno;
 static void ips_clean(void)
 {
 
-	//remove_proc_entry(IPS_DEV_PROC, NULL);
+	remove_proc_entry(IPS_DEV_PROC, NULL);
 	cdev_del(&dev);
 	unregister_chrdev_region(devno, 1);
 }
@@ -249,13 +254,11 @@ static int __init ips_init(void)
 		pr_err(IPS"cdev_add failed, %d\n", err);
 		return err;
 	}
-#if 0
 	if (unlikely(!proc_create_data(IPS_DEV_PROC,
 					0444, NULL, &proc_ops, NULL))) {
 		pr_err(IPS"could not create proc %s\n", IPS_DEV_PROC);
 		goto fail;
 	}
-#endif
 	return 0;
 fail:
 	ips_clean();

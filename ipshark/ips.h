@@ -53,7 +53,7 @@ struct ip_key_info_set{
 
 #define IPS_DEV_NAME "ipshark"
 #define IPS_DEV_FILE "/dev/"IPS_DEV_NAME
-#define IPS_DEV_PROC "/proc/driver/ipshark"
+#define IPS_DEV_PROC "driver/ipshark"
 
 #define IPS_CMD_MAGIC 'i'
 
