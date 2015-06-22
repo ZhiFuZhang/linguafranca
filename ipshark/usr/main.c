@@ -1,4 +1,5 @@
 #include "ips_api.h"
+#include "framework.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -45,12 +46,11 @@ static int test1()
 				err = -1;
 			}
 			if (err) goto fail;
-			
 			for (j = 0; j < s.n; j++) {
 				objdump((const char *)&s.array[j],
 						sizeof (struct ip_key_info));
 			}
-			printf("get it [%d], [%d]\n", i, s.n);
+			printf("get it [%d], [%d]\n", i, s.n); 
 		}
 
 		if (err) goto fail;
@@ -76,8 +76,129 @@ fail:
 	return err;
 }
 
-static void simple_ut()
+static int test3()
 {
+	int err = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"lo"},
+	};
+	struct ip_key_info_set s = { 0 };
+	struct ip_key_info info[512];
+	int i = 0;
+	int j = 0;
+	err = ips_init();
+	if(err) goto fail; 
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	err = ips_config(&l);
+	if (err) goto fail;
+	s.n = 512;
+	s.array = info;
+	for (i = 0; i < 10; i++) {
+		err = ips_fetch(&s);
+		if (err && s.n == 0) {
+			err = 0;
+		} else {
+			if (s.n <= 0) { 
+				err = -1;
+			}
+			if (err) goto fail;
+			
+			for (j = 0; j < s.n; j++) {
+				objdump((const char *)&s.array[j],
+						sizeof (struct ip_key_info));
+			}
+			printf("get it [%d], [%d]\n", i, s.n);
+		}
+
+		if (err) goto fail;
+		s.n = 512; 
+		sleep(1);
+	}
+
+fail:
+	ips_exit();
+	return err;
+}
+
+static int test4()
+{
+	int err = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"lo"},
+	};
+	struct ip_key_info_set s = { 0 };
+	struct ip_key_info info[512];
+	int i = 0;
+	int j = 0;
+
+	err = ips_init();
+	if(err) goto fail; 
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	err = ips_config(&l);
+	if (err) goto fail;
+	err = ips_config(&l);
+	if (!err) goto fail;
+	s.n = 512;
+	s.array = info;
+	for (i = 0; i < 10; i++) {
+		err = ips_fetch(&s);
+		if (err && s.n == 0) {
+			err = 0;
+		} else {
+			if (s.n <= 0) { 
+				err = -1;
+			}
+			if (err) goto fail;
+			
+			for (j = 0; j < s.n; j++) {
+				objdump((const char *)&s.array[j],
+						sizeof (struct ip_key_info));
+			}
+			printf("get it [%d], [%d]\n", i, s.n);
+		}
+
+		if (err) goto fail;
+		s.n = 512; 
+		sleep(1);
+	}
+
+	err = ips_config(&l);
+	if (!err) goto fail;
+	err = ips_init();
+	if(!err) goto fail; 
+	for (i = 0; i < 10; i++) {
+		err = ips_fetch(&s);
+		if (err && s.n == 0) {
+			err = 0;
+		} else {
+			if (s.n <= 0) { 
+				err = -1;
+			}
+			if (err) goto fail;
+			
+			for (j = 0; j < s.n; j++) {
+				objdump((const char *)&s.array[j],
+						sizeof (struct ip_key_info));
+			}
+			printf("get it [%d], [%d]\n", i, s.n);
+		}
+
+		if (err) goto fail;
+		s.n = 512; 
+		sleep(1);
+	}
+
+
+fail:
+	ips_exit();
+	return err;
+}
 #define runtest(f)	\
 {			\
 	int err = f();	\
@@ -91,37 +212,77 @@ static void simple_ut()
 	}		\
 }			\
 	
+static void simple_ut()
+{
+
 	int total = 0;
 	int fail = 0;
 	runtest(test1);
 	runtest(test2);
+	runtest(test3);
+	runtest(test4);
+	printf("######################test is done, %d/%d\n", fail, total);
+}
+static void handle(struct ip_key_info_set s) {
+	int j = 0;
+	printf("s.n = [%d]\n", s.n);
+	for (j = 0; j < s.n; j++) {
+		objdump((const char *)&s.array[j],
+				sizeof (struct ip_key_info));
+	}
+	ips_frame_destroy(&s);
+}
+static int ftest1() {
+	int err = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"lo"},
+	};
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	ips_frame_register(handle, 0);
+	err = ips_frame_start(&l);
+	if (err) return err;
+	sleep(10);
+	ips_frame_stop();
 
-	printf("test is done, %d/%d\n", fail, total);
+	return err;
+}
+static int ftest2() {
+	int err = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"lo"},
+	};
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	ips_frame_register(handle, 1);
+	err = ips_frame_start(&l);
+	if (err) return err;
+	sleep(5);
+
+	err = ips_frame_start(&l);
+	if (!err) return err;
+	err = 0;
+	sleep(5);
+	ips_frame_stop();
+	return err;
+}
+static void framework_ut() {
+	int total = 0;
+	int fail = 0;
+	runtest(ftest1);
+	runtest(ftest2);
+	printf("#################ftest is done, %d/%d\n", fail, total);
+
 }
 
 int main(int argc, char **argv)
 {
 	int err = 0;
-	int c = 0;
-	int t = 10;
-	if (argc < 2){
-		printf("need more argument\n");
-		return -1;
-	}
-	if (argc >= 3) {
-		c = atoi(argv[2]);
-		if (c > 1) t = c;
-	}
-
-	c = atoi(argv[1]);
-	if (c == 1) {
-		simple_ut();
-		sleep(t);
-
-	} else {
-		ips_init();
-		sleep(t);
-		ips_exit();
-	}
+	simple_ut();
+	framework_ut(); 
 	return err;
 }

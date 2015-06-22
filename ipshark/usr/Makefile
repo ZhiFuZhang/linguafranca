@@ -6,8 +6,8 @@ PROGRAM = ipstest
 CC = gcc
 
 INCLUDE =  
-LINKPARAM = 
-CFLAGS = -g -Wall -Werror -O2
+LINKPARAM = -lpthread
+CFLAGS = -g -Wall -Werror -O2 
 
 default:$(PROGRAM)
 

@@ -100,12 +100,14 @@ fail:
 	set(OPEN);
 	return err;
 }
+
 static int fetch_info(void * v)
 {
 
 	struct ip_key_info_set s;
+	
+	static  struct ip_key_info arr[1024];
 	char *buf = NULL;
-	char *bufnew = NULL;
 	int err = cas(NAME_SET, RUN);
 	if (err){
 		pr_err(IPS"state is wrong, %d\n", err);
@@ -113,7 +115,7 @@ static int fetch_info(void * v)
 	}
 	err= copy_from_user(&s, v, sizeof(s));
 	if (err) goto fail; 
-	if (s.buf == NULL || s.n <= 0) {
+	if (s.buf == NULL || s.n <= 0 || s.n > 1024) {
 		err =  -EINVAL;
 		goto fail;
 	}
@@ -133,21 +135,13 @@ static int fetch_info(void * v)
 				s.n * sizeof(struct ip_key_info));
 
 	if (err) goto fail;
-
-	s.buf = vmalloc(s.n * sizeof(struct ip_key_info));
-	bufnew = s.buf;
-	if (s.buf == NULL) {
-		err = -EFAULT;
-		goto fail;
-	}
+	s.array = arr;
 	ip_queue_get(&s);
 	err = copy_to_user(buf, s.buf,
 			s.n * sizeof(struct ip_key_info));
-	if (err) goto failfree;
+	if (err) goto fail;
 	s.buf = buf;
 	err = copy_to_user(v, &s, sizeof(s));
-failfree:
-	vfree(bufnew);
 fail:
 	set(NAME_SET);
 	if (err) pr_debug(IPS"ips fetch errno [%d]\n", err);
