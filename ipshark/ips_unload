@@ -1,0 +1,7 @@
+#!/bin/sh
+
+module="ipshark"
+device="ipshark"
+/sbin/rmmod ./$module.ko || exit 1
+rm -f /dev/${device}
+
