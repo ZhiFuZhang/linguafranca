@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include "framework.h"
 static void (*handle)(struct ip_key_info_set s);
 static int newthreadused;
@@ -17,6 +18,8 @@ static void *ips_frame_mt_run() {
 	size_t lastn = 0;
 	size_t nextn = 16;
 	int err = 0;
+
+	prctl(PR_SET_NAME, (unsigned long)"ips-handle(mutiple)");
 	while (running) {
 		if (nextn) {
 			s.n = nextn;
@@ -50,6 +53,7 @@ static void *ips_frame_ut_run() {
 	struct ip_key_info_set s = { 0 };
 	struct ip_key_info info[512];
 	int err = 0;
+	prctl(PR_SET_NAME, (unsigned long)"ips-handle(single)");
 	while (running) {
 		s.n = sizeof(info)/sizeof(struct ip_key_info);
 		s.array = info;

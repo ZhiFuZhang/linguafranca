@@ -238,7 +238,7 @@ static void handle2(struct ip_key_info_set s) {
 	static unsigned c = 0;
 
 	if (t > 0xffff) {
-		printf("pkts[%u]\n", t);
+		printf("pkts[%u], [%ld]\n", t, time(NULL));
 		t = 0;
 	}
 	if (c > 100000) {
