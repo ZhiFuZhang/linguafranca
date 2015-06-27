@@ -1,6 +1,6 @@
 #include <pthread.h>
 #include <stdlib.h>
-#include<string.h>
+#include <string.h>
 #include "framework.h"
 static void (*handle)(struct ip_key_info_set s);
 static int newthreadused;

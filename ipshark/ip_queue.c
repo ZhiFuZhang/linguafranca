@@ -92,32 +92,35 @@ int ip_queue_show(struct seq_file *m)
 
 void ip_queue_wake_up(void)
 {
-	static int num = 0;
-	num++;
 
-	if (num > 32) {
-		num = 0;
+	static unsigned int ip_put_times = 1;
+
+	if ((ip_put_times & 0x7f) == 0) {
 		wake_up_interruptible(&wq);
 	}
+	ip_put_times++;
 }
-static bool ip_queue_empty(void) 
+
+
+static int ip_queue_len(void) 
 {
 	int cpu = 0;
+	int pkts = 0;
 	STRUCT_IP_FIFO_PTR *c = NULL;
 	if (unlikely(ip_fifo == NULL)) return true;
 	for_each_possible_cpu(cpu) {
 		c = per_cpu_ptr(ip_fifo, cpu);
-		if (kfifo_is_empty(c->fifo)){
-			continue;
-		} else {
-			return true;
-		}	
+		pkts += kfifo_len(c->fifo);
 	}
-	return false;
+	return pkts;
 }
 long ip_queue_wait(void) 
 {
-	return wait_event_interruptible_timeout(wq, !ip_queue_empty(), HZ/50); 
+	int err = wait_event_interruptible_timeout(wq, (ip_queue_len() > 255), HZ/20); 
+	if (err == 0){
+		err = ip_queue_len();
+	}
+	return err;
 }
 
 void ip_queue_get(struct ip_key_info_set *s)

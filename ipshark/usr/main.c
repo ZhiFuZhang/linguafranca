@@ -1,5 +1,6 @@
 #include "ips_api.h"
 #include "framework.h"
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -232,6 +233,23 @@ static void handle(struct ip_key_info_set s) {
 	}
 	ips_frame_destroy(&s);
 }
+static void handle2(struct ip_key_info_set s) {
+	static unsigned int t = 0;
+	static unsigned c = 0;
+
+	if (t > 0xffff) {
+		printf("pkts[%u]\n", t);
+		t = 0;
+	}
+	if (c > 100000) {
+		printf("c [%d], [%ld]\n", c, time(NULL));
+		c = 0;
+	}
+	c++;
+	t += s.n;
+	ips_frame_destroy(&s);
+}
+
 static int ftest1() {
 	int err = 0;
 	struct devname_list l = { 0 };
@@ -249,6 +267,24 @@ static int ftest1() {
 
 	return err;
 }
+static int pftest(int a) {
+	int err = 0;
+	struct devname_list l = { 0 };
+	struct devname n = {
+		.name = {"lo"},
+	};
+	l.namelist = &n;
+	l.devnum = 1;
+	l.white_black = IPS_BLACK;
+	ips_frame_register(handle2, 0);
+	err = ips_frame_start(&l);
+	if (err) return err;
+	sleep(a);
+	ips_frame_stop();
+
+	return err;
+}
+
 static int ftest2() {
 	int err = 0;
 	struct devname_list l = { 0 };
@@ -282,7 +318,13 @@ static void framework_ut() {
 int main(int argc, char **argv)
 {
 	int err = 0;
+	int a = 0;
 	simple_ut();
 	framework_ut(); 
+	if (argc >= 2) {
+		a = atoi(argv[1]);
+		a = (a < 10) ? 10 : a;
+		pftest(a);
+	}
 	return err;
 }

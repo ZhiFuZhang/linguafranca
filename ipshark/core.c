@@ -121,7 +121,7 @@ static int fetch_info(void * v)
 	}
 
 	err = ip_queue_wait();
-	if (err) {
+	if (err <= 0) {
 		pr_debug(IPS"wait timeout %d\n", err);
 		err = -ETIME;
 		s.n = 0;
