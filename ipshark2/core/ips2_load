@@ -1,0 +1,24 @@
+#!/bin/sh
+
+module="ipshark2"
+device="ipshark2"
+mode="666"
+
+if grep '^staff:' /etc/group > /dev/null; then
+    group="staff"
+else
+    group="wheel"
+fi
+
+/sbin/insmod ./$module.ko || exit 1
+
+major=$(awk "\$2==\"$device\" {print \$1}" /proc/devices)
+if [ $major ]; then
+	rm -f /dev/${device}
+	mknod /dev/${device} c $major 0
+	chgrp $group /dev/${device}
+	chmod $mode /dev/${device}
+else
+	echo 'It is an error but it is for ut'
+fi
+
