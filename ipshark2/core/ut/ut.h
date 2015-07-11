@@ -1,10 +1,13 @@
-#ifndef __UT__H__
-#define __UT__H__
+#ifndef __UT__H__CORE
+#define __UT__H__CORE
 #include "../intern.h"
 #ifdef IPS
 #undef IPS
 #define IPS "ipshark2_ut:"
 #endif
+
+/* test suite */
+struct ut_result devset_ut(void);
 
 #define __rainy 
 #define __sunny
@@ -17,7 +20,7 @@
 		pr_info(IPS"testcase:%s failed, fail/total %d/%d@@\n", \
 		   #fun, r.fail, r.total);\
 	} else	{		  \
-		pr_debug(IPS"\ttestcase:%s passed \n", #fun); \
+		pr_info(IPS"\ttestcase:%s passed \n", #fun); \
 	}			 \
 }
 struct ut_result{

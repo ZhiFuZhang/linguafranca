@@ -18,7 +18,7 @@ static int __init ips_init(void)
 #ifdef DEBUG
 	pr_info(IPS"debug mode is open\n");
 #endif
-
+	runtestsuite(devset_ut);
 	return err;
 }
 

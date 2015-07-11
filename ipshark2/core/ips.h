@@ -10,8 +10,15 @@ enum {
 struct devname{
 	char name[IFNAMSIZ];
 };
+struct ips_cpu_queue_size{
+	short cpuidx;
+	unsigned short size;
+}
 struct ips_config {
 	size_t dma_size;
+	struct ips_cpu_queue_size queue_size[4];
+	unsigned short default_queue_size;
+	unsigned short unused;
 	int white_black;
 	int devnum;
 	struct devname devlist[0];
