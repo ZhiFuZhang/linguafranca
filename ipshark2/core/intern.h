@@ -5,7 +5,6 @@
 #include <linux/seq_file.h>
 #include "ips.h"
 #define IPS "ipshark2:"
-
 struct dev_entry{
 	struct devname n;
 	u32 hash;

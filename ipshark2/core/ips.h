@@ -50,6 +50,17 @@ struct ip_key_info{
 	__u16 dport;
 	__u16 totallen;
 };
+enum {
+	MEM_FREE =0,
+	MEM_INUSE,
+	MEM_USED
+};
+
+struct ip_key_info_wrap{
+	struct ip_key_info info;
+	unsigned int times:24,
+		     state:8;
+};
 
 struct ips_dma_array{
 	union {
