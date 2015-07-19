@@ -46,13 +46,9 @@ static u64 put_pkts = 0;
 static u64 get_pkts = 0;
 int ip_queue_put(const struct ip_key_info *info) 
 {
-	bool  in_softirq = in_softirq();
 	int ret = 0;
 	STRUCT_IP_FIFO_PTR *c = NULL;
 	if (unlikely(ip_fifo == NULL)) return 0;
-	if (!in_softirq) {
-		local_bh_disable();
-	}
 	c = get_cpu_ptr(ip_fifo);
 	ret = kfifo_put(c->fifo, info);
 	if (unlikely(ret == 0)) {
@@ -75,9 +71,6 @@ int ip_queue_put(const struct ip_key_info *info)
 		} 
 	}
 	put_cpu_ptr(ip_fifo);
-	if (!in_softirq) {
-		local_bh_enable();
-	}
 	return ret;
 }
 
