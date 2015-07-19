@@ -16,6 +16,9 @@
 
 #include <linux/types.h>
 
+#define NFS_MAJOR_VERSION 0
+#define NFS_MINOR_VERSION 9
+
 struct nfs_ipaddr {
 	__u8 len;
 	__u8 padding[3];
