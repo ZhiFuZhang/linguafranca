@@ -241,7 +241,6 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	struct nfs_counter_vector *vector = NULL;
 	unsigned long flags;
 	char name[NFS_IPSTR] = {0};
-	bool in_softirq = in_softirq();
 	pr_debug("debug.add ipcounter for [%s]\n",
 				nfs_ip2str(ip, name));
 
@@ -257,16 +256,10 @@ inline void inccounter(const struct nfs_ipaddr *ip, u8 typeidx, u64 bytes)
 	 * For netfilter hook(send from Host to Netowkr), it may be in process context
 	 * and it also may be in interrupt context(soft irq).
 	 */
-	if (!in_softirq) {
-		local_bh_disable();
-	}
 	vector = get_cpu_ptr(entry->counter);
 	vector[typeidx].number++;
 	vector[typeidx].bytes += bytes;
 	put_cpu_ptr(entry->counter);
-	if (!in_softirq) {
-		local_bh_enable();
-	}
 
 	read_unlock_irqrestore(&iptreelock, flags);
 }
