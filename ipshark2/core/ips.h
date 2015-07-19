@@ -13,7 +13,8 @@ struct devname{
 struct ips_cpu_queue_size{
 	short cpuidx;
 	unsigned short size;
-}
+};
+
 struct ips_config {
 	size_t dma_size;
 	struct ips_cpu_queue_size queue_size[4];
@@ -62,12 +63,12 @@ struct ip_key_info_wrap{
 		     state:8;
 };
 
-struct ips_dma_array{
-	union {
-		unsigned long long v;
-#define	ips_dma_array_size (sizeof(unsigned long long)/sizeof(unsigned short))
-		unsigned short element[ips_dma_array_size];
-	};
+#define ips_dma_idx_size 64
+struct ips_dma_area{
+	unsigned short idx_array[ips_dma_idx_size];
+	unsigned short idx_num;
+	unsigned short ip_key_info_total_size;
+	struct ip_key_info_wrap elem[0];
 };
 
 

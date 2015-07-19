@@ -2,9 +2,9 @@ ifneq ($(KERNELRELEASE),)
 
 	obj-m := ipshark2.o
 	ifeq ($(UNITTEST),y)
-		ipshark2-objs := ut/core.o ut/devset.o
+		ipshark2-objs := ut/core.o ut/devset.o ut/ip_queue.o
 	else
-		ipshark2-objs := core.o devset.o
+		ipshark2-objs := core.o devset.o ip_queue.o
 	endif
 
 	ifeq ($(DEBUG),y)
