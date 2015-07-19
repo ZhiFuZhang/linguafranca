@@ -288,6 +288,6 @@ module_exit(ips_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Zhi Fu Zhang <zzfooo@hotmail.com>");
 MODULE_DESCRIPTION("ipshark");
-MODULE_VERSION("0.1");
+MODULE_VERSION(IPS_VERSION);
 
 

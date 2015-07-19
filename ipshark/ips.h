@@ -1,6 +1,9 @@
 #ifndef __IPS_H__HEAD
 #define __IPS_H__HEAD
 #include <linux/types.h>
+
+#define IPS_VERSION "0.9"
+
 enum {
 	IPS_WHITE = 0,
 	IPS_BLACK,
