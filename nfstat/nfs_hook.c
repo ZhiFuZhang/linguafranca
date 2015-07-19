@@ -431,7 +431,7 @@ static int __init nfs_hook_init(void)
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Zhi Fu Zhang <zzfooo@hotmail.com>");
 MODULE_DESCRIPTION("nfstat");
-MODULE_VERSION("0.1");
+MODULE_VERSION(NFS_VERSION);
 
 
 module_init(nfs_hook_init);
