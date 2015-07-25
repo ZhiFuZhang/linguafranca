@@ -1,6 +1,9 @@
+#include <linux/kernel.h>
 #include <linux/kfifo.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 #include "ip_queue.h"
 struct ip_queue __STRUCT_KFIFO_PTR(unsigned short, 0, unsigned short);
 struct queue_data{
@@ -15,10 +18,12 @@ struct queue_data_ptr{
 };
 
 static struct ips_dma_area *m = NULL;
+static unsigned short wait_ms = 10;
 static u32 putfail = 0;
 static u32 getfail = 0;
 static u32 puttimes = 0;
 static struct queue_data_ptr * __percpu qptr;
+static DECLARE_WAIT_QUEUE_HEAD(wq);
 
 static struct ip_key_info_wrap *num2addr(unsigned short i)
 {
@@ -43,7 +48,7 @@ void *ip_queue_dma_addr(void)
 	return (void *)m;
 }
 int ip_queue_create(const struct ips_cpu_queue_size *s,
-		int num, unsigned short default_size)
+		int num, unsigned short default_size, unsigned short ms)
 {
 	int cpu = 0;
 	struct queue_data_ptr *c = NULL;
@@ -62,11 +67,12 @@ int ip_queue_create(const struct ips_cpu_queue_size *s,
 			break;
 		}
 		c->dataptr->start = pre;
+		c->dataptr->alarm = false;
 		size = getsize(cpu, s, num, default_size);
 		pre = pre + size;
 
 		/* it is much more than 65535, wrap around */
-		if (pre <= size) {
+		if (pre < size) {
 			ret = -EINVAL;
 			break;
 		}
@@ -101,25 +107,34 @@ int ip_queue_create(const struct ips_cpu_queue_size *s,
 		ip_queue_exit();
 		return ret;
 	}
-	memset(m, 0, total);
+	memset(m, 0xec, total);
 	m->idx_num = 0;
 	m->ip_key_info_total_size = pre;
+	for (i = 0; i < pre; i++) {
+		m->elem[i].times = 0;
+		m->elem[i].state = MEM_FREE;
+	}
 	ret = total;
+	if (ms < 10)
+		wait_ms = 10;
+	else if (ms > 1000)
+		wait_ms = 1000;
+	else 
+		wait_ms = ms;
+
 	return ret;
 }
 int ip_queue_recycle(unsigned short *idlist, int size)
 {
 	int i = 0; 
 	int cpu = 0;
-	bool empty = false;
 	struct queue_data_ptr *c = NULL;
 	int ret = 0;
 	struct ip_key_info_wrap* addr = NULL;
-	for_each_possible_cpu(cpu) {
-		c = per_cpu_ptr(qptr, cpu);
-		empty = true;
-		for (i = 0; i < size; i++) {
-			if (idlist[i] == 0) continue;
+
+	for (i = 0; i < size; i++) {
+		for_each_possible_cpu(cpu) {
+			c = per_cpu_ptr(qptr, cpu);
 			if (idlist[i] >= c->dataptr->start
 					&& idlist[i] < c->dataptr->end) {
 				addr = num2addr(idlist[i]);
@@ -131,14 +146,12 @@ int ip_queue_recycle(unsigned short *idlist, int size)
 				}
 				idlist[i] = 0;
 			}
-			empty = false;
 		}
-		if (empty) break;
 	}
 	return ret;
 }
 
-int ip_queue_move2dma(void)
+void ip_queue_move2dma(void)
 {
 	unsigned short *idlist = m->idx_array;
 	int num = ips_dma_idx_size;
@@ -147,28 +160,45 @@ int ip_queue_move2dma(void)
 	struct queue_data_ptr *c = NULL;
 	for_each_possible_cpu(cpu) {
 		c = per_cpu_ptr(qptr, cpu);
-		if (kfifo_is_empty(&qptr->dataptr->ready)) continue;
-		copied += kfifo_out(&qptr->dataptr->ready,
+		if (kfifo_is_empty(&c->dataptr->ready)) continue;
+		copied += kfifo_out(&c->dataptr->ready,
 				idlist + copied, num);
 		num -= copied;
 		if (num <= 0) break;
 	}
 	m->idx_num = copied;
-	return copied;
 }
-
-bool ip_queue_shall_wakeup(void)
+static bool ip_queue_shall_wakeup(void)
 {
-	if (puttimes > ips_dma_idx_size /2){
-		puttimes = 0;
+	if (puttimes > ips_dma_idx_size/2){
 		return true;
 	}
 	return false;
 }
 
+void ip_queue_wakeup(void)
+{
+	if (ip_queue_shall_wakeup()) {
+		wake_up_interruptible(&wq);
+	}
+}
+long ip_queue_wait(void)
+{
+	int remain = wait_event_interruptible_timeout(wq,
+			ip_queue_shall_wakeup(), (HZ/1000) * wait_ms);
+	/* meet the condition */
+	if (remain > 0){
+		puttimes = 0;
+	}
+	return remain;
+}
 bool ip_queue_has_data(void)
 {
-	return puttimes > 0;
+	if (puttimes > 0) {
+		puttimes = 0;
+		return true;
+	}
+	return false;
 }
 
 void ip_queue_put(const struct ip_key_info *src)
@@ -180,15 +210,28 @@ void ip_queue_put(const struct ip_key_info *src)
 
 	puttimes++;
 	c = get_cpu_ptr(qptr);
-	if (0 == kfifo_get(&qptr->dataptr->idle, &s)){
+	if (0 == kfifo_get(&c->dataptr->idle, &s)){
 		getfail++;
 	} else {
 		addr = num2addr(s);
 		memcpy(&addr->info, src, sizeof(struct ip_key_info));
 		addr->times++;
 		addr->state = MEM_INUSE;
-		if (0 == kfifo_put(&qptr->dataptr->ready, &s)) {
-			kfifo_put(&qptr->dataptr->idle, &s);
+		if (0 == kfifo_put(&c->dataptr->ready, &s)) {
+			kfifo_put(&c->dataptr->idle, &s);
+		}
+	}
+	if (c->dataptr->alarm){
+		if (kfifo_len(&c->dataptr->ready)
+			       	< kfifo_size(&c->dataptr->ready)/2 ) {
+			c->dataptr->alarm = false;		
+			pr_warn(IPS"clear alarm for queue(%p)\n", c);
+		}
+	} else {
+		if (kfifo_len(&c->dataptr->ready)
+			       	> 3 * kfifo_size(&c->dataptr->ready)/4 ) {
+			c->dataptr->alarm = true;
+			pr_warn(IPS"raise alarm for queue(%p)\n", c);
 		}
 	}
 	put_cpu_ptr(qptr);
@@ -210,8 +253,10 @@ void ip_queue_exit(void)
 			}
 		}
 		free_percpu(qptr);
+		qptr = NULL;
 	}
 	if (m != NULL) {
 		vfree(m);
+		m = NULL;
 	}
 }

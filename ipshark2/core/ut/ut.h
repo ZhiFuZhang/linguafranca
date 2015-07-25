@@ -8,6 +8,7 @@
 
 /* test suite */
 struct ut_result devset_ut(void);
+struct ut_result ip_queue_ut(void);
 
 #define __rainy 
 #define __sunny
@@ -17,8 +18,8 @@ struct ut_result devset_ut(void);
 	r.total++;		  \
 	if (i_runtest__t != 0) {  \
 		r.fail++;	  \
-		pr_info(IPS"testcase:%s failed, fail/total %d/%d@@\n", \
-		   #fun, r.fail, r.total);\
+		pr_info(IPS"testcase:%s failed[%d], fail/total %d/%d@@\n", \
+		   #fun, i_runtest__t,  r.fail, r.total);\
 	} else	{		  \
 		pr_info(IPS"\ttestcase:%s passed \n", #fun); \
 	}			 \

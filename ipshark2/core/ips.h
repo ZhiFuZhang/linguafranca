@@ -19,7 +19,7 @@ struct ips_config {
 	size_t dma_size;
 	struct ips_cpu_queue_size queue_size[4];
 	unsigned short default_queue_size;
-	unsigned short unused;
+	unsigned short wait_ms;
 	int white_black;
 	int devnum;
 	struct devname devlist[0];
@@ -81,11 +81,11 @@ struct ips_dma_area{
 
 enum IPS_CMD {
 	IPS_CONFIG = 0,
-#define  IPS_CONFIG _IOW(IPS_CMD_MAGIC, IPS_SET_NAMELIST, struct ips_config)
+#define  IPS_CONFIG _IOW(IPS_CMD_MAGIC, IPS_CONFIG, struct ips_config)
 	IPS_FETCH_INFO,
-#define IPS_FETCH_INFO _IOR(IPS_CMD_MAGIC, IPS_FETCH_INFO, unsigned long long)
+#define IPS_FETCH_INFO _IO(IPS_CMD_MAGIC, IPS_FETCH_INFO)
 	IPS_FREE_MEM,
-#define IPS_FETCH_INFO _IOR(IPS_CMD_MAGIC, IPS_FETCH_INFO, unsigned long long)
+//#define IPS_FETCH_INFO _IOR(IPS_CMD_MAGIC, IPS_FETCH_INFO, unsigned long long)
 
 };
 

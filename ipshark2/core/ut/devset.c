@@ -104,7 +104,7 @@ static int __sunny devset_order_test1(void)
 		p[1] = '0' + i%10;
 		p[2] = 'A' + i;
 		p[3] = 0;
-		pr_info(IPS"%s\n", p);
+		pr_debug(IPS"%s\n", p);
 		p += 20;
 	}
 	__devset_order();
@@ -149,7 +149,7 @@ static int __sunny devset_order_test2(void)
 		p[1] = '0' + i;
 		p[2] = 'a' + i;
 		p[3] = 0;
-		pr_info(IPS"%s\n", p);
+		pr_debug(IPS"%s\n", p);
 		p += 20;
 	}
 	__devset_order();

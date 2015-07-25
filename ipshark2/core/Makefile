@@ -4,7 +4,7 @@ ifneq ($(KERNELRELEASE),)
 	ifeq ($(UNITTEST),y)
 		ipshark2-objs := ut/core.o ut/devset.o ut/ip_queue.o
 	else
-		ipshark2-objs := core.o devset.o ip_queue.o
+		ipshark2-objs := core.o devset.o ip_queue.o hook.o dma.o
 	endif
 
 	ifeq ($(DEBUG),y)

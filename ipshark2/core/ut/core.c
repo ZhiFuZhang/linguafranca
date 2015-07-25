@@ -19,6 +19,7 @@ static int __init ips_init(void)
 	pr_info(IPS"debug mode is open\n");
 #endif
 	runtestsuite(devset_ut);
+	runtestsuite(ip_queue_ut);
 	return err;
 }
 

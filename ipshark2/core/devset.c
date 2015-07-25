@@ -80,7 +80,7 @@ void __devset_order(void)
 	kfree(tmpname);
 
 }
-bool devset_ignore(char *s)
+bool devset_ignore(const char *s)
 {
 	u32 h = 0;
 	int low = 0;
