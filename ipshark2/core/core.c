@@ -33,7 +33,7 @@ static int ips_config(struct ips_config *c)
 		goto ip_queue_fail;
 	}
 	config.dma_size = s;
-	ret = devset_init(&config);
+	ret = devset_init(&config, c);
 	if (ret) goto devset_fail;
 	ret = copy_to_user(c, &config, sizeof(config));
 	if (ret) goto devset_fail;
@@ -64,6 +64,16 @@ static int ips_fetch(void)
 	}
 	
 }
+
+static int ips_freemem(struct ips_recycle_array *p)
+{
+	struct ips_recycle_array a;
+	int ret = copy_from_user(&a, p, sizeof(struct ips_recycle_array));
+	if (ret) return ret;
+	ip_queue_recycle(a.idx_array, a.idx_num);
+	return ret;
+}
+
 static long ips_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int cmdnum = 0;
@@ -92,6 +102,8 @@ static long ips_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case IPS_FETCH_INFO:
 		err = ips_fetch();
 		break;
+	case IPS_FREE_MEM:
+		err = ips_freemem((struct ips_recycle_array *)arg);
 	default:
 		pr_err("handle error:IPS_CMD_NUM:[%d]\n", cmdnum);
 		return -EFAULT;
@@ -114,7 +126,7 @@ static dev_t devno;
 static void ips_clean(void)
 {
 
-	//ips_remove_proc();
+	ips_rmv_proc();
 	cdev_del(&dev);
 	unregister_chrdev_region(devno, 1);
 }
@@ -147,7 +159,7 @@ static int __init ips_init(void)
 		pr_err(IPS"cdev_add failed, %d\n", err);
 		return err;
 	}
-	//err = ips_create_proc();
+	err = ips_create_proc();
 	if (err){
 		goto fail;
 	}

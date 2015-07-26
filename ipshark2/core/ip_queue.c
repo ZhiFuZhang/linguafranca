@@ -19,12 +19,28 @@ struct queue_data_ptr{
 
 static struct ips_dma_area *m = NULL;
 static unsigned short wait_ms = 10;
-static u32 putfail = 0;
-static u32 getfail = 0;
 static u32 puttimes = 0;
 static struct queue_data_ptr * __percpu qptr;
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 
+static u64 queue_times = 0;
+static u64 recycle_times = 0;
+static u32 putfail = 0;
+static u32 getfail = 0;
+static u32 get_invalid_idx_times = 0;
+static u32 recycle_invalid_idx_times = 0;
+void ip_queue_show(struct seq_file *m)
+{
+	seq_printf(m, "queued packets [%llu]\n", queue_times);
+	seq_printf(m, "recycled idx [%llu]\n", recycle_times);
+
+	seq_printf(m, "no idle idx, times[%u]\n", getfail);
+	seq_printf(m, "ready queue full, times[%u]\n", putfail);
+	seq_printf(m, "try to use USED memory, times[%u]\n",
+			get_invalid_idx_times);
+	seq_printf(m, "try to free freed memory,times[%u]\n",
+			recycle_invalid_idx_times);
+}
 static struct ip_key_info_wrap *num2addr(unsigned short i)
 {
 	return m->elem + i;
@@ -124,37 +140,45 @@ int ip_queue_create(const struct ips_cpu_queue_size *s,
 
 	return ret;
 }
-int ip_queue_recycle(unsigned short *idlist, int size)
+void ip_queue_recycle(unsigned short *idlist, int size)
 {
 	int i = 0; 
 	int cpu = 0;
 	struct queue_data_ptr *c = NULL;
-	int ret = 0;
 	struct ip_key_info_wrap* addr = NULL;
-
+	bool handled = false;
 	for (i = 0; i < size; i++) {
+		handled = false;
+		addr = num2addr(idlist[i]);
+		if (addr->state != MEM_INUSE){
+			recycle_invalid_idx_times++;
+			pr_err_once(IPS"recycle unused memeory \n");
+			continue;	
+		}
 		for_each_possible_cpu(cpu) {
 			c = per_cpu_ptr(qptr, cpu);
 			if (idlist[i] >= c->dataptr->start
 					&& idlist[i] < c->dataptr->end) {
-				addr = num2addr(idlist[i]);
 				addr->state = MEM_USED;
 				if(kfifo_put(&c->dataptr->idle, &idlist[i]) == 0){
-					ret = -ENOMEM;
 					putfail++;
-					pr_err(IPS"critical issue, idlist is full,\n");
+					pr_err_once(IPS"critical,idlist is full\n");
 				}
 				idlist[i] = 0;
+				handled = true;
+				recycle_times++; 
 			}
 		}
+		if (!handled){
+			pr_err(IPS"idx is invalid,idx %d\n", idlist[i]);
+		}
 	}
-	return ret;
 }
 
 void ip_queue_move2dma(void)
 {
 	unsigned short *idlist = m->idx_array;
-	int num = ips_dma_idx_size;
+	int num = ips_idx_array_size;
 	int cpu = 0;
 	int copied = 0;
 	struct queue_data_ptr *c = NULL;
@@ -170,7 +194,7 @@ void ip_queue_move2dma(void)
 }
 static bool ip_queue_shall_wakeup(void)
 {
-	if (puttimes > ips_dma_idx_size/2){
+	if (puttimes > ips_idx_array_size/2){
 		return true;
 	}
 	return false;
@@ -212,13 +236,26 @@ void ip_queue_put(const struct ip_key_info *src)
 	c = get_cpu_ptr(qptr);
 	if (0 == kfifo_get(&c->dataptr->idle, &s)){
 		getfail++;
+		pr_err_once("no idle idx\n");
 	} else {
 		addr = num2addr(s);
+		while (addr->state == MEM_INUSE){
+			get_invalid_idx_times++;
+			pr_err_once(IPS"idx is in use!!!! [%d]\n", s);
+			if (0 == kfifo_get(&c->dataptr->idle, &s)){
+				getfail++;
+				pr_err_once("no idle idx\n");
+				return;
+			}
+		}
+
 		memcpy(&addr->info, src, sizeof(struct ip_key_info));
 		addr->times++;
 		addr->state = MEM_INUSE;
 		if (0 == kfifo_put(&c->dataptr->ready, &s)) {
 			kfifo_put(&c->dataptr->idle, &s);
+		}else {
+			queue_times++;
 		}
 	}
 	if (c->dataptr->alarm){

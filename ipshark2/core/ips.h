@@ -63,14 +63,18 @@ struct ip_key_info_wrap{
 		     state:8;
 };
 
-#define ips_dma_idx_size 64
+#define ips_idx_array_size 128
 struct ips_dma_area{
-	unsigned short idx_array[ips_dma_idx_size];
+	unsigned short idx_array[ips_idx_array_size];
 	unsigned short idx_num;
 	unsigned short ip_key_info_total_size;
 	struct ip_key_info_wrap elem[0];
 };
 
+struct ips_recycle_array{
+	unsigned short idx_num;
+	unsigned short idx_array[ips_idx_array_size];
+};
 
 
 #define IPS_DEV_NAME "ipshark2"
@@ -85,7 +89,7 @@ enum IPS_CMD {
 	IPS_FETCH_INFO,
 #define IPS_FETCH_INFO _IO(IPS_CMD_MAGIC, IPS_FETCH_INFO)
 	IPS_FREE_MEM,
-//#define IPS_FETCH_INFO _IOR(IPS_CMD_MAGIC, IPS_FETCH_INFO, unsigned long long)
+#define IPS_FREE_MEM _IOW(IPS_CMD_MAGIC, IPS_FREE_MEM, struct ips_recycle_array)
 
 };
 
