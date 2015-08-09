@@ -16,8 +16,5 @@ struct ipshark_data{
 	void * __percpu idle;
 	void * __percpu touser;
 };
-int ips_create_proc(void);
-void ips_rmv_proc(void);
-int ips_mmap(struct file *filp, struct vm_area_struct *vma);
 
 #endif

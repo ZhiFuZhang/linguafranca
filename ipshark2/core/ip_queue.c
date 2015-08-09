@@ -2,6 +2,7 @@
 #include <linux/kfifo.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
+#include <linux/preempt_mask.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include "ip_queue.h"
@@ -227,28 +228,35 @@ bool ip_queue_has_data(void)
 
 void ip_queue_put(const struct ip_key_info *src)
 {
+
 	unsigned short s = 0;
 	struct ip_key_info_wrap* addr = NULL;
 	struct queue_data_ptr *c = NULL;
+	bool  in_softirq = false;
 	if (unlikely(qptr == NULL)) return ;
 
 	puttimes++;
 	c = get_cpu_ptr(qptr);
-	if (0 == kfifo_get(&c->dataptr->idle, &s)){
-		getfail++;
-		pr_err_once("no idle idx\n");
-	} else {
-		addr = num2addr(s);
-		while (addr->state == MEM_INUSE){
+	in_softirq = in_softirq();
+	if (!in_softirq) {
+		local_bh_disable();
+	}
+	do {
+		if (addr != NULL) {
 			get_invalid_idx_times++;
 			pr_err_once(IPS"idx is in use!!!! [%d]\n", s);
-			if (0 == kfifo_get(&c->dataptr->idle, &s)){
-				getfail++;
-				pr_err_once("no idle idx\n");
-				return;
-			}
 		}
 
+		if (0 == kfifo_get(&c->dataptr->idle, &s)){
+			getfail++;
+			pr_err_once("no idle idx\n");
+			addr = NULL;
+			break;
+		}
+		addr = num2addr(s);
+
+	} while (addr->state == MEM_INUSE);
+	if (addr != NULL) {
 		memcpy(&addr->info, src, sizeof(struct ip_key_info));
 		addr->times++;
 		addr->state = MEM_INUSE;
@@ -257,20 +265,25 @@ void ip_queue_put(const struct ip_key_info *src)
 		}else {
 			queue_times++;
 		}
-	}
-	if (c->dataptr->alarm){
-		if (kfifo_len(&c->dataptr->ready)
-			       	< kfifo_size(&c->dataptr->ready)/2 ) {
-			c->dataptr->alarm = false;		
-			pr_warn(IPS"clear alarm for queue(%p)\n", c);
+		if (c->dataptr->alarm){
+			if (kfifo_len(&c->dataptr->ready)
+					< kfifo_size(&c->dataptr->ready)/2 ) {
+				c->dataptr->alarm = false;		
+				pr_warn(IPS"clear alarm for queue(%p)\n", c);
+			}
+		} else {
+			if (kfifo_len(&c->dataptr->ready)
+					> 3*kfifo_size(&c->dataptr->ready)/4) {
+				c->dataptr->alarm = true;
+				pr_warn(IPS"raise alarm for queue(%p)\n", c);
+			}
 		}
-	} else {
-		if (kfifo_len(&c->dataptr->ready)
-			       	> 3 * kfifo_size(&c->dataptr->ready)/4 ) {
-			c->dataptr->alarm = true;
-			pr_warn(IPS"raise alarm for queue(%p)\n", c);
-		}
+
 	}
+	if (!in_softirq) {
+		local_bh_enable();
+	}
+
 	put_cpu_ptr(qptr);
 
 }

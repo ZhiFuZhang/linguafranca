@@ -5,9 +5,10 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include "devset.h"
+#include "dma.h"
 #include "hook.h"
-#include "intern.h"
 #include "ip_queue.h"
+#include "proc.h"
 static int ips_open(struct inode *node, struct file *filep)
 {
 	pr_info(IPS"open\n");
@@ -24,7 +25,13 @@ static int ips_config(struct ips_config *c)
 	struct ips_config config;
 	int ret = copy_from_user(&config, c, sizeof(struct ips_config));
 	int s = 0;
+	struct ips_config *p = NULL;
+	int t = sizeof(ips_config) + sizeof(config.devlist[0]) * config.devnum;
 	if (ret) goto fail;
+	p =  kmalloc(t, GFP_KERNEL);
+	if (p == NULL) goto fail;
+	ret = copy_from_user(p, c, t);
+	if (ret) goto fail2;
 	s = ip_queue_create(config.queue_size,
 		sizeof(config.queue_size)/sizeof(struct ips_cpu_queue_size),
 		config.default_queue_size, config.wait_ms);
@@ -33,7 +40,7 @@ static int ips_config(struct ips_config *c)
 		goto ip_queue_fail;
 	}
 	config.dma_size = s;
-	ret = devset_init(&config, c);
+	ret = devset_init(p);
 	if (ret) goto devset_fail;
 	ret = copy_to_user(c, &config, sizeof(config));
 	if (ret) goto devset_fail;
@@ -43,6 +50,9 @@ devset_fail:
 	devset_exit();
 ip_queue_fail:
 	ip_queue_exit();
+fail2:
+	kfree(p);
+	p = NULL;
 fail:
 	return ret;
 }

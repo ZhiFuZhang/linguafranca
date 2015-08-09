@@ -9,7 +9,7 @@ static __sunny  int ip_queue_create_test1(void)
 	};
 	unsigned short ds = 256;
 	int t = ip_queue_create(s,
-			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds);
+			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds, 50);
 	int cpu = 0;
 	struct queue_data_ptr *c = NULL;
 	unsigned short n = 0;
@@ -63,7 +63,7 @@ static __sunny int ip_queue_e2e_test1(void)
 	};
 	unsigned short ds = 256;
 	int t = ip_queue_create(s,
-			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds);
+			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds, 60);
 	struct ip_key_info info = {
 		.in = {"hello"},
 		.sport = 11111,
@@ -75,15 +75,13 @@ static __sunny int ip_queue_e2e_test1(void)
 	if (t <= 0) return 1;
 	for (i = 0; i < m->ip_key_info_total_size; i++) {
 		ip_queue_put(&info);
-		t = ip_queue_move2dma();
-		if (t != 1) return 2;
+		ip_queue_move2dma();
 		if (m->idx_num != 1) return 3;
 		w = num2addr(m->idx_array[0]);
 		if (w->times != 1) return 4;
 		if (w->state != MEM_INUSE) return 5;
 		if (memcmp(&w->info, &info, sizeof(info)) != 0) return 6;
-		t = ip_queue_recycle(m->idx_array, m->idx_num);
-		if (t != 0) return 7;
+		ip_queue_recycle(m->idx_array, m->idx_num);
 		if (w->times != 1) return 8;
 		if (w->state != MEM_USED) return 9;
 	}
@@ -99,7 +97,7 @@ static __sunny int ip_queue_e2e_test2(void)
 	};
 	unsigned short ds = 256;
 	int t = ip_queue_create(s,
-			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds);
+			sizeof(s)/sizeof(struct ips_cpu_queue_size), ds, 70);
 	struct ip_key_info info = {
 		.in = {"ipshark2"},
 		.sport = 41111,
@@ -112,13 +110,12 @@ static __sunny int ip_queue_e2e_test2(void)
 	int k = 0;
 	if (t <= 0) return 1;
 	for (i = 0; i < m->ip_key_info_total_size; i++) {
-		k = ((i * i)%ips_dma_idx_size) + 1;
+		k = ((i * i)%ips_idx_array_size) + 1;
 		info.totallen++;
 		for (j = 0; j < k; j++) {
 			ip_queue_put(&info);
 		}
-		t = ip_queue_move2dma();
-		if (t != k) return 2;
+		ip_queue_move2dma();
 		if (m->idx_num != k) return 3;
 		for (j = 0; j < k; j++) {
 			w = num2addr(m->idx_array[j]);
@@ -128,8 +125,7 @@ static __sunny int ip_queue_e2e_test2(void)
 			if (memcmp(&w->info, &info, sizeof(info)) != 0)
 				return 6;
 		}
-		t = ip_queue_recycle(m->idx_array, m->idx_num);
-		if (t != 0) return 7;
+		ip_queue_recycle(m->idx_array, m->idx_num);
 		if (w->state != MEM_USED) return 9;
 	}
 	ip_queue_exit();

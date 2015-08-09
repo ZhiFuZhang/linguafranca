@@ -3,7 +3,7 @@
 #include <linux/mm.h>		/* everything */
 #include <linux/errno.h>	/* error codes */
 #include <asm/pgtable.h>
-#include "intern.h"
+#include "dma.h"
 #include "ip_queue.h"
 
 void ips_vma_open(struct vm_area_struct *vma)
@@ -29,7 +29,6 @@ static int ips_vma_fault(struct vm_area_struct *vma,
 	
 	pageptr =  ip_queue_dma_addr();
 	if (!pageptr) return VM_FAULT_NOPAGE; /* hole or end-of-file */
-	pageptr =  ip_queue_dma_addr();
 	pr_info(IPS"vmalloc addr [%p]\n", pageptr);
 
 	page = vmalloc_to_page(pageptr);
